@@ -32,6 +32,7 @@ export interface AuthStore {
   user: AuthResponse['user'] | null;
   token: string | null;
   isAuthenticated: boolean;
+  initialized: boolean;
   initializeAuth: () => Promise<void>;
   login: (data: LoginData) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;

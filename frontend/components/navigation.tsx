@@ -21,6 +21,7 @@ export default function Navigation() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
+  const initialized = useAuthStore((s) => s.initialized)
   const [mounted, setMounted] = useState(false)
 
   // Avoid rendering auth-dependent UI during SSR/initial hydration to prevent
@@ -65,7 +66,7 @@ export default function Navigation() {
           <div className="hidden md:flex items-center gap-4">
             {/* During SSR/mount we render the non-authenticated view to match server HTML.
                 After mount, the real `isAuthenticated` will be reflected. */}
-            {!mounted || !isAuthenticated ? (
+            {!mounted || !initialized || !isAuthenticated ? (
               <>
                 <Link href="/auth/login" className="text-sm text-muted-foreground hover:text-foreground transition">
                   Login
@@ -109,7 +110,7 @@ export default function Navigation() {
         </div>
 
         {/* Mobile Navigation */}
-        {isOpen && (
+            {isOpen && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -133,7 +134,7 @@ export default function Navigation() {
               About
             </Link>
             <div className="pt-2 space-y-2">
-              {!isAuthenticated ? (
+              {(!initialized || !isAuthenticated) ? (
                 <>
                   <Link href="/auth/login" className="block px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
                     Login

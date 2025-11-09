@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState } from "react"
 import { motion } from "framer-motion"
-import { Upload, FileIcon, AlertCircle } from "lucide-react"
+import { Upload, FileIcon, AlertCircle, X as XIcon } from "lucide-react"
 import { useAuthStore } from "@/lib/store/auth.store"
 import { useToast } from "@/hooks/use-toast"
 import { httpClient } from '@/lib/http-client'
@@ -13,8 +13,12 @@ export default function UploadSection() {
   const [file, setFile] = useState<File | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [result, setResult] = useState<any | null>(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const user = useAuthStore((s) => s.user)
+  const initialized = useAuthStore((s) => s.initialized)
+  const initializeAuth = useAuthStore((s) => s.initializeAuth)
   const { toast } = useToast()
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -62,6 +66,18 @@ export default function UploadSection() {
     if (!isAuthenticated) {
       showAuthToast()
       return
+    }
+    // If auth initialization is still in progress (e.g. page just loaded),
+    // wait for it to complete before proceeding. This prevents a transient
+    // state where `isAuthenticated` is true but `user` is not yet populated.
+    if (!initialized) {
+      toast({ title: 'Authenticating', description: 'Checking session, please wait...', duration: 3000 })
+      try {
+        await initializeAuth()
+      } catch (e) {
+        // initialization may fail and clear token — fall through to error handling below
+        console.warn('initializeAuth() failed during upload flow', e)
+      }
     }
     if (!file) return
     // Read latest user from store in case the hook value is stale during hydration
@@ -166,6 +182,18 @@ export default function UploadSection() {
     }
   }
 
+  const openPreview = (src?: string | null) => {
+    if (!src) return
+    setPreviewSrc(src)
+    setPreviewOpen(true)
+  }
+
+  const closePreview = () => {
+    setPreviewOpen(false)
+    // small delay to clear src after animation if desired
+    setTimeout(() => setPreviewSrc(null), 200)
+  }
+
   return (
     <section id="upload" className="py-20 px-4 bg-background">
       <div className="max-w-4xl mx-auto">
@@ -244,7 +272,8 @@ export default function UploadSection() {
                   <img
                     src={result.model_prediction?.output_image_url || result.image_url}
                     alt="analysis output"
-                    className="w-full h-auto rounded-md object-cover border"
+                    className="w-full h-auto rounded-md object-cover border cursor-zoom-in"
+                    onClick={() => openPreview(result.model_prediction?.output_image_url || result.image_url)}
                   />
                 </div>
                 <div className="flex-1 text-sm text-muted-foreground">
@@ -268,6 +297,30 @@ export default function UploadSection() {
                 </div>
               </div>
             </motion.div>
+          )}
+
+          {/* Image preview modal */}
+          {previewOpen && previewSrc && (
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+              onClick={closePreview}
+            >
+              <div
+                className="relative max-w-5xl w-full max-h-[90vh] rounded-md overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  aria-label="Close preview"
+                  onClick={closePreview}
+                  className="absolute right-2 top-2 z-50 p-2 bg-black/50 rounded-full hover:bg-black/40 transition"
+                >
+                  <XIcon className="text-white" />
+                </button>
+                <img src={previewSrc} alt="Preview" className="w-full h-auto max-h-[90vh] object-contain bg-black" />
+              </div>
+            </div>
           )}
 
           {/* Info Box */}

@@ -13,7 +13,10 @@ export const httpClient = axios.create({
   timeout: 10000,
   // Add validation
   validateStatus: (status) => {
-    return status >= 200 && status < 500; // Handle only 5xx errors as errors
+    // Follow axios default: treat 2xx as success. This ensures 401/403/4xx
+    // responses are rejected and hit our response error handler which clears
+    // auth state on unauthorized responses.
+    return status >= 200 && status < 300;
   },
 });
 

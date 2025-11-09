@@ -6,16 +6,31 @@ export const useAuthStore = create<AuthStore>((set) => ({
   user: null,
   token: typeof window !== 'undefined' ? localStorage.getItem('token') : null,
   isAuthenticated: typeof window !== 'undefined' ? !!localStorage.getItem('token') : false,
+  // `initialized` flips to true once we've checked localStorage and optionally
+  // verified the token via /auth/me. Components should wait for this to avoid
+  // rendering a transient authenticated UI when the token is invalid.
+  initialized: false,
 
   initializeAuth: async () => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     if (token) {
       try {
         const response = await httpClient.get<{ user: AuthResponse['user'] }>('/auth/me');
+
+        // Ensure the response contains a user; if not, treat as invalid token.
+        if (!response || response.status < 200 || response.status >= 300 || !response.data?.user) {
+          console.warn('initializeAuth: /auth/me returned unexpected response', { status: response?.status, data: response?.data });
+          // Clear invalid token and mark unauthenticated
+          localStorage.removeItem('token');
+          set({ user: null, token: null, isAuthenticated: false, initialized: true });
+          return;
+        }
+
         set({
           user: response.data.user,
           token,
           isAuthenticated: true,
+          initialized: true,
         });
       } catch (error) {
         localStorage.removeItem('token');
@@ -23,11 +38,14 @@ export const useAuthStore = create<AuthStore>((set) => ({
           user: null,
           token: null,
           isAuthenticated: false,
+          initialized: true,
         });
       }
+    } else {
+      // No token present, mark initialization complete so UI can show login/register
+      set({ initialized: true });
     }
   },
-
   login: async (data: LoginData) => {
     try {
       // Clear any existing auth data
@@ -45,13 +63,32 @@ export const useAuthStore = create<AuthStore>((set) => ({
       const payload = response.data?.data ?? response.data;
 
       // Check if the payload has a token with a different key name
-      const token =
+      let token: any =
         payload?.access_token ||
         payload?.token ||
         payload?.accessToken ||
         response.data?.access_token ||
         response.data?.token ||
         response.data?.accessToken;
+
+      // Normalize token to a string. If the token is an object with a nested
+      // string (e.g. { token: '...' }) prefer that. Otherwise fail early so we
+      // don't persist an invalid value like "[object Object]" which breaks
+      // subsequent auth checks and causes the UI to briefly show a logged-in
+      // state for an invalid token.
+      let tokenString: string | null = null;
+      if (typeof token === 'string' && token.trim() !== '') {
+        tokenString = token;
+      } else if (typeof token === 'object' && token !== null) {
+        tokenString = (token.token || token.accessToken) ?? null;
+      } else if (typeof token === 'number') {
+        tokenString = String(token);
+      }
+
+      if (!tokenString) {
+        console.error('Login: received invalid token value from server', { token });
+        throw new Error('Invalid token received from server');
+      }
 
       // Try to find the user object in the nested payload or top-level
       const userData = payload?.user || payload?.userData || payload || response.data;
@@ -86,13 +123,13 @@ export const useAuthStore = create<AuthStore>((set) => ({
         throw new Error('Invalid user data structure received from server');
       }
 
-      // Save token to localStorage
-      localStorage.setItem('token', token);
+      // Save token to localStorage (string only)
+      localStorage.setItem('token', tokenString);
       
-      // Update store
+      // Update store with normalized string token
       set({
         user: normalizedUser,
-        token: token,
+        token: tokenString,
         isAuthenticated: true,
       });
       
@@ -102,6 +139,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
         hasUser: !!currentState.user,
         isAuthenticated: currentState.isAuthenticated,
         hasToken: !!currentState.token,
+        tokenSample: currentState.token ? currentState.token.slice?.(0, 10) : null,
         userData: currentState.user
       });
 
@@ -117,20 +155,34 @@ export const useAuthStore = create<AuthStore>((set) => ({
     }
   },
 
-  register: async (data: RegisterData) => {
+    register: async (data: RegisterData) => {
     try {
       const response = await httpClient.post<AuthResponse>('/auth/register', data);
-      const { user, access_token } = response.data;
-      
-      // Save token to localStorage
-      localStorage.setItem('token', access_token);
-      
-      // Update store
-      set({
-        user,
-        token: access_token,
-        isAuthenticated: true,
-      });
+      const { user } = response.data;
+  // Try multiple common locations for the token
+  const respDataAny: any = response.data as any;
+  let access_token: any = respDataAny?.access_token ?? respDataAny?.token ?? respDataAny?.accessToken ?? null;
+
+      // Normalize token to string (same rules as login)
+      let tokenString: string | null = null;
+      if (typeof access_token === 'string' && access_token.trim() !== '') {
+        tokenString = access_token;
+      } else if (typeof access_token === 'object' && access_token !== null) {
+        tokenString = (access_token.token || access_token.accessToken) ?? null;
+      } else if (typeof access_token === 'number') {
+        tokenString = String(access_token);
+      }
+
+      if (!tokenString) {
+        console.warn('Register: no token found in response; user created but not authenticated automatically', { response: response.data });
+        // If there's no token, just set user but don't mark authenticated
+        set({ user, token: null, isAuthenticated: false });
+        return;
+      }
+
+      // Save token and update store
+      localStorage.setItem('token', tokenString);
+      set({ user, token: tokenString, isAuthenticated: true });
     } catch (error) {
       throw error;
     }
