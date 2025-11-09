@@ -6,12 +6,15 @@ import { motion } from "framer-motion"
 import { Upload, FileIcon, AlertCircle } from "lucide-react"
 import { useAuthStore } from "@/lib/store/auth.store"
 import { useToast } from "@/hooks/use-toast"
+import { httpClient } from '@/lib/http-client'
 
 export default function UploadSection() {
   const [isDragging, setIsDragging] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [result, setResult] = useState<any | null>(null)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const user = useAuthStore((s) => s.user)
   const { toast } = useToast()
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -61,10 +64,106 @@ export default function UploadSection() {
       return
     }
     if (!file) return
+    // Read latest user from store in case the hook value is stale during hydration
+    const currentUser = useAuthStore.getState().user
+    if (!currentUser || !currentUser.id) {
+      toast({
+        title: 'Upload failed',
+        description: 'Could not determine logged in user. Please login again.',
+        duration: 4000,
+      })
+      return
+    }
+
     setIsAnalyzing(true)
-    // Simulate analysis
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-    setIsAnalyzing(false)
+    setResult(null)
+    try {
+      const form = new FormData()
+  form.append('user_id', currentUser.id)
+      form.append('file', file)
+
+      // Use axios httpClient so the Authorization header from interceptors is applied
+      // Debug: dump FormData keys to console to verify file is attached
+      try {
+        for (const pair of form.entries()) {
+          // pair is [key, value]
+          if (pair[1] instanceof File) {
+            console.log('FormData entry:', pair[0], (pair[1] as File).name, (pair[1] as File).size)
+          } else {
+            console.log('FormData entry:', pair[0], pair[1])
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to enumerate FormData', e)
+      }
+
+      // The axios instance has a default Content-Type of application/json which
+      // would cause the request to be sent incorrectly. Passing `undefined`
+      // tells axios to let the browser set the proper multipart boundary header.
+      const res = await httpClient.post('/scans/upload', form, {
+        headers: {
+          'Content-Type': undefined as unknown as string,
+        },
+      })
+
+      // Response shape may be { success, statusCode, message, data: { ... } }
+      const body = res?.data
+      const payload = body?.data ?? body
+
+      console.log('Upload API response', { status: res?.status, body, payload })
+
+      // If server indicates failure, show message
+      const successFlag = body?.success ?? (res?.status >= 200 && res?.status < 300)
+      if (!successFlag) {
+        console.error('Upload error', { status: res?.status, body })
+        toast({
+          title: 'Upload failed',
+          description: body?.message || 'Failed to upload scan. Try again later.',
+          duration: 5000,
+        })
+        return
+      }
+
+      // inner data object contains the uploaded scan and prediction
+      const resultData = body?.data ?? payload
+      setResult(resultData)
+      toast({
+        title: 'Upload successful',
+        description: body?.message || 'MRI scan uploaded successfully',
+        duration: 4000,
+      })
+    } catch (err: any) {
+      // More robust logging for axios / network errors
+      try {
+        console.error('Upload exception (raw):', err)
+        const names = Object.getOwnPropertyNames(err)
+        const props = names.reduce<any>((acc, k) => {
+          try {
+            acc[k] = err[k]
+          } catch (e) {
+            acc[k] = '<unserializable>'
+          }
+          return acc
+        }, {})
+        console.error('Upload exception (props):', props)
+      } catch (logErr) {
+        console.error('Failed to serialize upload error', logErr)
+      }
+
+      // Decide user-facing message based on error shape
+      const serverMessage = err?.response?.data?.message || err?.message
+      const isNetworkError = !!err?.request && !err?.response
+
+      toast({
+        title: 'Upload failed',
+        description: isNetworkError
+          ? 'Network error or CORS issue. Check API server availability and CORS settings.'
+          : serverMessage || 'An unexpected error occurred while uploading.',
+        duration: 7000,
+      })
+    } finally {
+      setIsAnalyzing(false)
+    }
   }
 
   return (
@@ -128,6 +227,46 @@ export default function UploadSection() {
               <button onClick={() => setFile(null)} className="text-muted-foreground hover:text-foreground transition">
                 ✕
               </button>
+            </motion.div>
+          )}
+
+          {/* Result Preview */}
+          {result && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-4 rounded-lg bg-white/5 border border-border"
+            >
+              <h4 className="font-medium text-foreground mb-2">Analysis Result</h4>
+              <div className="flex flex-col md:flex-row gap-4 items-start">
+                <div className="w-full md:w-48">
+                  {/* prefer model output image if present */}
+                  <img
+                    src={result.model_prediction?.output_image_url || result.image_url}
+                    alt="analysis output"
+                    className="w-full h-auto rounded-md object-cover border"
+                  />
+                </div>
+                <div className="flex-1 text-sm text-muted-foreground">
+                  <p>
+                    <span className="font-semibold text-foreground">Tumor type: </span>
+                    {result.model_prediction?.tumor_type ?? 'N/A'}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-foreground">Confidence: </span>
+                    {result.model_prediction?.confidence_score
+                      ? (result.model_prediction.confidence_score * 100).toFixed(2) + '%'
+                      : 'N/A'}
+                  </p>
+                  {result.model_prediction?.description && (
+                    <p className="mt-2">
+                      <span className="font-semibold text-foreground">Details: </span>
+                      {result.model_prediction.description}
+                    </p>
+                  )}
+                  <p className="mt-3 text-xs text-muted-foreground">Uploaded at: {new Date(result.uploaded_at).toLocaleString()}</p>
+                </div>
+              </div>
             </motion.div>
           )}
 

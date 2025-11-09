@@ -7,7 +7,7 @@ export interface Detection {
 export interface MlPredictionResult {
     totalDetections: number;
     detections: Detection[];
-    outputImage: string;
+    outputImage: string | string[];
 }
 export declare class MlClientService {
     private readonly config;
@@ -15,6 +15,7 @@ export declare class MlClientService {
     private readonly predictPath;
     constructor(config: ConfigService);
     predict(file: Express.Multer.File): Promise<MlPredictionResult & {
-        outputBuffer?: Buffer;
+        outputBuffer?: Buffer | Buffer[];
+        requestId?: string;
     }>;
 }

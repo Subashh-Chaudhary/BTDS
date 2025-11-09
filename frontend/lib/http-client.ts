@@ -46,12 +46,36 @@ httpClient.interceptors.response.use(
     return response;
   },
   async (error) => {
-    console.error('API Error:', {
-      url: error.config?.url,
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message
-    });
+    // Log useful bits and the full error object. Some network/CORS errors
+    // result in an Error with non-enumerable properties, so serialize
+    // with Object.getOwnPropertyNames when possible.
+    try {
+      const serialized: any = {
+        url: error?.config?.url,
+        status: error?.response?.status,
+        data: error?.response?.data,
+        message: error?.message,
+        code: error?.code,
+      }
+      console.error('API Error:', serialized)
+      console.error('API Error (full):', error)
+      try {
+        const names = Object.getOwnPropertyNames(error)
+        const allProps = names.reduce<any>((acc, key) => {
+          try {
+            acc[key] = (error as any)[key]
+          } catch (e) {
+            acc[key] = '<unserializable>'
+          }
+          return acc
+        }, {})
+        console.error('API Error (props):', allProps)
+      } catch (e) {
+        // ignore serialization issues
+      }
+    } catch (logErr) {
+      console.error('Failed to log API error', logErr, error)
+    }
 
     // Handle 401 error (unauthorized)
     if (error.response?.status === 401) {

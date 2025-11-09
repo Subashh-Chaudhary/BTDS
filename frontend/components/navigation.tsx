@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Menu, X, ChevronDown } from "lucide-react"
 import { motion } from "framer-motion"
@@ -21,6 +21,13 @@ export default function Navigation() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
+  const [mounted, setMounted] = useState(false)
+
+  // Avoid rendering auth-dependent UI during SSR/initial hydration to prevent
+  // mismatches between server and client HTML. Only show auth UI after mount.
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   return (
     <nav className="fixed top-0 w-full bg-background/95 backdrop-blur-sm border-b border-border z-50">
@@ -42,10 +49,10 @@ export default function Navigation() {
             <Link href="#how-it-works" className="text-sm text-muted-foreground hover:text-foreground transition">
               How It Works
             </Link>
-            <Link 
-              href={isAuthenticated ? "#upload" : "#"} 
-              onClick={(e) => !isAuthenticated && e.preventDefault()}
-              className={`text-sm ${isAuthenticated ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/50 cursor-not-allowed'} transition`}
+            <Link
+              href={mounted && isAuthenticated ? "#upload" : "#"}
+              onClick={(e) => !(mounted && isAuthenticated) && e.preventDefault()}
+              className={`text-sm ${(mounted && isAuthenticated) ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/50 cursor-not-allowed'} transition`}
             >
               Upload
             </Link>
@@ -56,7 +63,9 @@ export default function Navigation() {
 
           {/* Auth Buttons / Profile */}
           <div className="hidden md:flex items-center gap-4">
-            {!isAuthenticated ? (
+            {/* During SSR/mount we render the non-authenticated view to match server HTML.
+                After mount, the real `isAuthenticated` will be reflected. */}
+            {!mounted || !isAuthenticated ? (
               <>
                 <Link href="/auth/login" className="text-sm text-muted-foreground hover:text-foreground transition">
                   Login

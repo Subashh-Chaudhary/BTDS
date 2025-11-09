@@ -40,12 +40,24 @@ export const useAuthStore = create<AuthStore>((set) => ({
       // Log the full response for debugging
       console.log('Raw server response:', response.data);
 
-      // Check if the response has a token with a different key name
-      const token = response.data.access_token || response.data.token || response.data.accessToken;
-      const userData = response.data.user || response.data.userData || response.data;
+      // Some backends nest the actual payload under `data.data` (see API logs).
+      // Prefer the nested payload if present, otherwise fall back to top-level.
+      const payload = response.data?.data ?? response.data;
+
+      // Check if the payload has a token with a different key name
+      const token =
+        payload?.access_token ||
+        payload?.token ||
+        payload?.accessToken ||
+        response.data?.access_token ||
+        response.data?.token ||
+        response.data?.accessToken;
+
+      // Try to find the user object in the nested payload or top-level
+      const userData = payload?.user || payload?.userData || payload || response.data;
 
       if (!token) {
-        console.error('Response structure:', response.data);
+        console.error('Response structure (no token):', response.data);
         throw new Error('Invalid response from server - no token received');
       }
 
