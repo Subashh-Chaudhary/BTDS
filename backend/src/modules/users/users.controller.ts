@@ -8,14 +8,20 @@ import {
   Param,
   ParseIntPipe,
   Put,
+  Post,
   Query,
   Request,
   Res,
+  UseInterceptors,
+  UploadedFile,
+  UploadedFiles,
 } from '@nestjs/common';
+import { FileInterceptor, AnyFilesInterceptor } from '@nestjs/platform-express';
 import { Request as ExpressRequest, Response } from 'express';
 import { ResponseHelper } from 'src/common/helpers/response.helper';
 import { UpdateUserDto } from './dtos/update-user.dto';
 import { UsersService } from './users.service';
+import { CloudinaryService } from 'src/common/services/cloudinary.service';
 
 /**
  * Users Controller
@@ -24,7 +30,10 @@ import { UsersService } from './users.service';
  */
 @Controller('')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
 
   /**
    * Get all users with pagination
@@ -133,10 +142,24 @@ export class UsersController {
    */
   @Get('profile')
   async getProfile(
-    @Request() req: ExpressRequest & { user: { id: string } },
+    @Request() req: ExpressRequest & { user?: { id: string }; body?: any },
     @Res() res: Response,
   ) {
-    const user = await this.usersService.findById(req.user.id);
+    const anyReq = req as any;
+    const userId = (req.user && (req.user as any).id) || anyReq.query?.id || anyReq.body?.id;
+
+    if (!userId) {
+      const response = ResponseHelper.error(
+        'User id not provided',
+        'User identification is required',
+        HttpStatus.BAD_REQUEST,
+        '/profile',
+        'GET',
+      );
+      return res.status(response.statusCode).json(response);
+    }
+
+    const user = await this.usersService.findById(userId);
 
     // Remove password from response
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -161,11 +184,25 @@ export class UsersController {
    */
   @Put('profile')
   async updateProfile(
-    @Request() req: ExpressRequest & { user: { id: string } },
+    @Request() req: ExpressRequest & { user?: { id: string }; body?: any },
     @Body() updateData: UpdateUserDto,
     @Res() res: Response,
   ) {
-    const user = await this.usersService.updateUser(req.user.id, updateData);
+    const anyReq = req as any;
+    const userId = (req.user && (req.user as any).id) || anyReq.body?.id || anyReq.query?.id;
+
+    if (!userId) {
+      const response = ResponseHelper.error(
+        'User id not provided',
+        'User identification is required',
+        HttpStatus.BAD_REQUEST,
+        '/profile',
+        'PUT',
+      );
+      return res.status(response.statusCode).json(response);
+    }
+
+    const user = await this.usersService.updateUser(userId, updateData);
 
     // Remove password from response
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -177,6 +214,83 @@ export class UsersController {
       HttpStatus.OK,
       '/profile',
       'PUT',
+    );
+    return res.status(response.statusCode).json(response);
+  }
+
+  /**
+   * Upload avatar for current user
+   * Accepts multipart/form-data with field name 'avatar'
+   */
+  @Post('profile/avatar')
+  @UseInterceptors(AnyFilesInterceptor())
+  async uploadAvatar(
+    @Request() req: ExpressRequest & { user?: { id: string }; body?: any },
+    @UploadedFiles() files: Express.Multer.File[],
+    @Res() res: Response,
+  ) {
+    // Ensure cloudinary service exists on controller (registered in module)
+    if (!this.cloudinaryService || !this.cloudinaryService.uploadImageBuffer) {
+      const response = ResponseHelper.error(
+        'Avatar upload service not available',
+        'Service unavailable',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        '/profile/avatar',
+        'POST',
+      );
+      return res.status(response.statusCode).json(response);
+    }
+
+    // Support both 'avatar' and 'file' form field names by picking the matching file
+    const file = (files || []).find((f) => f.fieldname === 'avatar') ||
+      (files || [])[0];
+
+    if (!file) {
+      const response = ResponseHelper.error(
+        'No file uploaded',
+        'File is required',
+        HttpStatus.BAD_REQUEST,
+        '/profile/avatar',
+        'POST',
+      );
+      return res.status(response.statusCode).json(response);
+    }
+
+    // Determine user id: prefer authenticated user, fall back to body.id or query.id
+    const anyReq = req as any;
+    const userId = (req.user && (req.user as any).id) || anyReq.body?.id || anyReq.query?.id;
+
+    if (!userId) {
+      const response = ResponseHelper.error(
+        'User id not provided',
+        'User identification is required',
+        HttpStatus.BAD_REQUEST,
+        '/profile/avatar',
+        'POST',
+      );
+      return res.status(response.statusCode).json(response);
+    }
+
+    // Upload file buffer to cloudinary
+    const url = await this.cloudinaryService.uploadImageBuffer(file, {
+      folder: 'avatars',
+    });
+
+    // Update user's avatar_url
+    const user = await this.usersService.updateUser(userId, {
+      avatar_url: url,
+    } as UpdateUserDto);
+
+    // Remove password from response
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, ...userWithoutPassword } = user;
+
+    const response = ResponseHelper.success(
+      userWithoutPassword,
+      'Avatar uploaded successfully',
+      HttpStatus.OK,
+      '/profile/avatar',
+      'POST',
     );
     return res.status(response.statusCode).json(response);
   }

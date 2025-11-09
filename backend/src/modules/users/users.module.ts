@@ -7,6 +7,7 @@ import { Users } from './entities/users.entity';
 import { UsersRepository } from './repositories/users.repository';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
+import { CloudinaryService } from '../../common/services/cloudinary.service';
 
 @Module({
   imports: [
@@ -14,7 +15,19 @@ import { UsersService } from './users.service';
     ExpertModule, // Import ExpertModule to access ExpertService
   ],
   controllers: [UsersController],
-  providers: [UsersService, UsersRepository, SocialAuthService, AdminSeeder],
-  exports: [UsersService, UsersRepository, SocialAuthService, AdminSeeder], // Export AdminSeeder so DatabaseService can use it
+  providers: [
+    UsersService,
+    UsersRepository,
+    SocialAuthService,
+    AdminSeeder,
+    CloudinaryService,
+  ],
+  exports: [
+    UsersService,
+    UsersRepository,
+    SocialAuthService,
+    AdminSeeder,
+    CloudinaryService,
+  ], // Export AdminSeeder so DatabaseService can use it
 })
 export class UsersModule {}

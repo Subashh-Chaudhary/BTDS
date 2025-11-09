@@ -7,6 +7,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { IsInt, Min, Max, IsIn } from 'class-validator';
 
 /**
  * DTO for updating user information
@@ -39,6 +40,19 @@ export class UpdateUserDto {
   @IsOptional()
   @IsUrl({}, { message: 'Please provide a valid URL for avatar' })
   avatar_url?: string;
+
+  @IsOptional()
+  @IsInt({ message: 'Age must be an integer' })
+  @Min(0, { message: 'Age must be at least 0' })
+  @Max(150, { message: 'Age must be less than or equal to 150' })
+  age?: number;
+
+  @IsOptional()
+  @IsString({ message: 'Gender must be a string' })
+  @IsIn(['male', 'female', 'other', 'prefer_not_to_say'], {
+    message: 'Gender must be one of male, female, other, prefer_not_to_say',
+  })
+  gender?: string;
 
   @IsOptional()
   is_verified?: boolean;

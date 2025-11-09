@@ -9,14 +9,18 @@ import { Badge } from "@/components/ui/badge";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { useState, useEffect } from "react";
 import { useToast } from '@/hooks/use-toast'
+import { httpClient } from '@/lib/http-client'
+import { useRouter } from 'next/navigation'
 
 export default function ProfilePage() {
-  const { user, isAuthenticated, token } = useAuthStore();
+  const { user, isAuthenticated, token, initializeAuth } = useAuthStore();
   const safeUser: any = user;
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [previewAvatar, setPreviewAvatar] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const router = useRouter()
   const [profileData, setProfileData] = useState({
     name: safeUser?.name || '',
     email: safeUser?.email || '',
@@ -28,6 +32,21 @@ export default function ProfilePage() {
     is_active: safeUser?.is_active ?? true,
     is_verified: safeUser?.is_verified ?? false,
   });
+
+  // Keep local profileData in sync with store user updates (e.g. after login or save)
+  useEffect(() => {
+    setProfileData(prev => ({
+      name: safeUser?.name ?? prev.name,
+      email: safeUser?.email ?? prev.email,
+      phone: safeUser?.phone ?? prev.phone,
+      address: safeUser?.address ?? prev.address,
+      age: (safeUser?.age as number) ?? prev.age,
+      gender: safeUser?.gender ?? prev.gender,
+      avatar_url: (safeUser?.avatar as string) || safeUser?.avatar_url || prev.avatar_url,
+      is_active: safeUser?.is_active ?? prev.is_active,
+      is_verified: safeUser?.is_verified ?? prev.is_verified,
+    }))
+  }, [safeUser?.id, safeUser?.name, safeUser?.email, safeUser?.phone, safeUser?.address, safeUser?.age, safeUser?.gender, safeUser?.avatar, safeUser?.avatar_url, safeUser?.is_active, safeUser?.is_verified])
 
   const handleEdit = () => {
     setIsEditing(!isEditing);
@@ -58,10 +77,91 @@ export default function ProfilePage() {
     if (!file) return;
     const url = URL.createObjectURL(file);
     setPreviewAvatar(url);
+    setSelectedFile(file);
     // in a real app we'd upload the file and set avatar_url to returned url
     setProfileData(prev => ({ ...prev, avatar_url: url }));
   };
 
+  const uploadAvatar = async (file: File) => {
+    try {
+      const form = new FormData()
+      form.append('id', safeUser?.id)
+      form.append('file', file)
+
+      const res = await httpClient.post('/profile/avatar', form, {
+        // let axios/browser set multipart boundary
+        headers: { 'Content-Type': undefined as unknown as string },
+      })
+
+      const body = res?.data
+      const payload = body?.data ?? body
+
+      // try multiple common keys for returned avatar URL
+      const avatarUrl = payload?.avatar_url || payload?.url || payload?.data?.avatar_url || payload?.avatar
+      if (avatarUrl) {
+        setProfileData(prev => ({ ...prev, avatar_url: avatarUrl }))
+        // refresh auth store from server so fields are consistent
+        try {
+          await initializeAuth?.()
+        } catch (e) {
+          // fallback: set avatar locally if refresh fails
+          useAuthStore.setState((s: any) => ({ user: { ...(s.user || {}), avatar: avatarUrl, avatar_url: avatarUrl } }))
+        }
+        toast({ title: 'Avatar uploaded', description: 'Profile avatar updated', duration: 3000 })
+        return avatarUrl
+      }
+
+      throw new Error('No avatar url returned')
+    } catch (err: any) {
+      console.error('Avatar upload failed', err)
+      toast({ title: 'Upload failed', description: err?.message || 'Could not upload avatar', duration: 4000 })
+      throw err
+    }
+  }
+
+  const saveProfile = async () => {
+    try {
+      // If user selected an avatar file, upload first
+      if (selectedFile) {
+        await uploadAvatar(selectedFile)
+        // revoke local preview object URL
+        try { previewAvatar && URL.revokeObjectURL(previewAvatar) } catch(e) {}
+        setSelectedFile(null)
+      }
+
+      const payload: any = {
+        id: safeUser?.id,
+        name: profileData.name,
+        address: profileData.address,
+        is_active: profileData.is_active,
+        age: profileData.age,
+        gender: profileData.gender,
+      }
+
+  const res = await httpClient.put('/profile', payload)
+      const body = res?.data
+      const data = body?.data ?? body
+
+      // Update local store user from response if available, otherwise merge fields
+      const current = useAuthStore.getState().user || {}
+      // Refresh the auth store from server to pick up DB changes
+      try {
+        await initializeAuth?.()
+      } catch (e) {
+        // If refresh fails, still merge local changes into store so UI updates
+        const merged = { ...(current as any), name: payload.name, address: payload.address, is_active: payload.is_active, age: payload.age, gender: payload.gender }
+        useAuthStore.setState({ user: merged as any })
+      }
+
+      toast({ title: 'Profile saved', description: 'Your profile changes were saved', duration: 3000 })
+      setIsEditing(false)
+    } catch (err) {
+      console.error('Save profile failed', err)
+      toast({ title: 'Save failed', description: 'Unable to save profile. Try again.', duration: 4000 })
+    }
+  }
+
+  console.log('Rendering ProfilePage', { isAuthenticated, user, profileData });
   useEffect(() => {
     const init = async () => {
       try {
@@ -118,10 +218,12 @@ export default function ProfilePage() {
             <div className="flex flex-col items-center text-center space-y-4">
               <div className="relative">
                 <Avatar className="w-28 h-28">
-                  {previewAvatar || profileData.avatar_url ? (
-                    <AvatarImage src={previewAvatar || profileData.avatar_url || '/placeholder-avatar.png'} alt={safeUser?.name} />
+                  {previewAvatar ? (
+                    <AvatarImage src={previewAvatar} alt={safeUser?.name || profileData.name} />
+                  ) : (profileData.avatar_url || safeUser?.avatar || safeUser?.avatar_url) ? (
+                    <AvatarImage src={profileData.avatar_url || safeUser?.avatar || safeUser?.avatar_url || '/placeholder-avatar.png'} alt={safeUser?.name || profileData.name} />
                   ) : (
-                    <AvatarFallback>{safeUser?.name?.[0] ?? '?'}</AvatarFallback>
+                    <AvatarFallback>{(safeUser?.name || profileData.name)?.[0] ?? '?'}</AvatarFallback>
                   )}
                 </Avatar>
                 {isEditing && (
@@ -144,19 +246,21 @@ export default function ProfilePage() {
                 </Badge>
               </div>
 
-              <div className="w-full mt-2 text-left">
+              <div className="w-full mt-2 text-left space-y-2">
+                <h3 className="text-sm font-medium text-slate-700">Contact</h3>
+                <p className="text-sm text-slate-500">{safeUser?.phone || profileData.phone || 'No phone provided.'}</p>
                 <h3 className="text-sm font-medium text-slate-700">Address</h3>
-                <p className="text-sm text-slate-500 mt-1">{safeUser?.address || 'No address provided.'}</p>
+                <p className="text-sm text-slate-500">{safeUser?.address || profileData.address || 'No address provided.'}</p>
               </div>
 
               <div className="w-full grid grid-cols-2 gap-2 mt-2">
                 <div className="text-left">
                   <div className="text-xs text-muted-foreground">Age</div>
-                  <div className="font-medium">{safeUser?.age ?? '—'}</div>
+                  <div className="font-medium">{(safeUser?.age ?? profileData.age) ?? '—'}</div>
                 </div>
                 <div className="text-left">
                   <div className="text-xs text-muted-foreground">Gender</div>
-                  <div className="font-medium capitalize">{safeUser?.gender || '—'}</div>
+                  <div className="font-medium capitalize">{safeUser?.gender || profileData.gender || '—'}</div>
                 </div>
               </div>
             </div>
@@ -204,32 +308,32 @@ export default function ProfilePage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
-                <Input id="name" name="name" value={isEditing ? profileData.name : safeUser?.name} onChange={handleChange} disabled={!isEditing} />
+                <Input id="name" name="name" value={isEditing ? profileData.name : (safeUser?.name ?? profileData.name)} onChange={handleChange} disabled={!isEditing} />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" name="email" type="email" value={isEditing ? profileData.email : safeUser?.email} onChange={handleChange} disabled={!isEditing} />
+                <Input id="email" name="email" type="email" value={isEditing ? profileData.email : (safeUser?.email ?? profileData.email)} onChange={handleChange} disabled={!isEditing} />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone</Label>
-                <Input id="phone" name="phone" type="tel" value={isEditing ? (profileData.phone ?? '') : (safeUser?.phone ?? '')} onChange={handleChange} disabled={!isEditing} />
+                <Input id="phone" name="phone" type="tel" value={isEditing ? (profileData.phone ?? '') : (safeUser?.phone ?? profileData.phone ?? '')} onChange={handleChange} disabled={!isEditing} />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="age">Age</Label>
-                <Input id="age" name="age" type="number" value={isEditing ? (profileData.age ?? '') as any : (safeUser?.age ?? '') as any} onChange={handleNumberChange} disabled={!isEditing} />
+                <Input id="age" name="age" type="number" value={isEditing ? (profileData.age ?? '') as any : ((safeUser?.age ?? profileData.age) ?? '') as any} onChange={handleNumberChange} disabled={!isEditing} />
               </div>
 
               <div className="col-span-2 space-y-2">
                 <Label htmlFor="address">Address</Label>
-                <Input id="address" name="address" value={isEditing ? (profileData.address ?? '') : (safeUser?.address ?? '')} onChange={handleChange} disabled={!isEditing} />
+                <Input id="address" name="address" value={isEditing ? (profileData.address ?? '') : (safeUser?.address ?? profileData.address ?? '')} onChange={handleChange} disabled={!isEditing} />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="gender">Gender</Label>
-                <Input id="gender" name="gender" value={isEditing ? (profileData.gender ?? '') : (safeUser?.gender ?? '')} onChange={handleChange} disabled={!isEditing} />
+                <Input id="gender" name="gender" value={isEditing ? (profileData.gender ?? '') : (safeUser?.gender ?? profileData.gender ?? '')} onChange={handleChange} disabled={!isEditing} />
               </div>
 
               <div className="space-y-2">

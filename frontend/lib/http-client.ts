@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Default API URL: prefer environment variable, fall back to 3000 where backend runs locally
+const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 console.log('API URL:', baseURL); // Debug log
 

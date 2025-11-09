@@ -322,7 +322,7 @@ export class AuthController {
    */
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
-  googleLoginCallback(@Req() req: GoogleAuthRequest) {
+  async googleLoginCallback(@Req() req: GoogleAuthRequest) {
     try {
       const { user } = req;
       const token = this.authService.generateToken({
@@ -333,15 +333,12 @@ export class AuthController {
         provider_id: user.provider_id,
       });
 
+      // Fetch full user record (excluding password) to return all attributes
+  const fullUser = await this.authService.getFullUserById(String(user.id));
+
       return ResponseHelper.success(
         {
-          user: {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            auth_provider: user.auth_provider,
-            provider_id: user.provider_id,
-          },
+          user: fullUser,
           access_token: token,
         },
         'Google login successful',
@@ -349,7 +346,7 @@ export class AuthController {
         req.url,
         req.method,
       );
-    } catch {
+    } catch (err) {
       throw new HttpException(
         ResponseHelper.error(
           'Google login failed',

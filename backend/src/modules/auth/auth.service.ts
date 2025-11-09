@@ -96,8 +96,17 @@ export class AuthService {
     const access_token = this.jwtService.sign(payload);
 
     // Return user data (excluding password) and token
+    // Fetch full user record (from users or experts) so we return all user fields
+    let fullUser: any = null;
+    try {
+      fullUser = await this.usersService.findById(String(user.id));
+    } catch (e) {
+      // not a regular user, try expert
+      fullUser = await this.expertService.findById(String(user.id));
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...userWithoutPassword } = user;
+    const { password: _pwd, ...userWithoutPassword } = fullUser;
 
     return {
       user: userWithoutPassword as Record<string, unknown>,
@@ -192,10 +201,17 @@ export class AuthService {
     };
 
     const access_token = this.jwtService.sign(payload);
+    // Fetch full user record (from users or experts) so we return all user fields
+    let fullUser: any = null;
+    try {
+      fullUser = await this.usersService.findById(String(user.id));
+    } catch (e) {
+      // not a regular user, try expert
+      fullUser = await this.expertService.findById(String(user.id));
+    }
 
-    // Return user data (excluding password) and token
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...userWithoutPassword } = user;
+    const { password: _pwd, ...userWithoutPassword } = fullUser;
 
     return {
       user: userWithoutPassword as Record<string, unknown>,
@@ -406,6 +422,24 @@ export class AuthService {
    */
   generateToken(user: IUserData): string {
     return AuthHelper.generateToken(user, this.jwtService);
+  }
+
+  /**
+   * Return the full user/expert record by id (password stripped)
+   * @param id - user id
+   */
+  async getFullUserById(id: string): Promise<Record<string, unknown>> {
+    let fullUser: any = null;
+    try {
+      fullUser = await this.usersService.findById(id);
+    } catch (e) {
+      fullUser = await this.expertService.findById(id);
+    }
+
+    // Strip password if present
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password: _pwd, ...userWithoutPassword } = fullUser;
+    return userWithoutPassword as Record<string, unknown>;
   }
 
   /**

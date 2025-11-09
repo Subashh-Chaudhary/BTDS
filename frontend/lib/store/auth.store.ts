@@ -103,17 +103,24 @@ export const useAuthStore = create<AuthStore>((set) => ({
         throw new Error('Invalid response from server - no user data received');
       }
 
-      // Create a normalized user object
+      // Create a normalized user object (map common backend keys to a stable shape)
       const normalizedUser = {
         id: userData.id || userData._id || userData.userId,
         name: userData.name || userData.username || userData.displayName,
         email: userData.email,
         role: userData.role || userData.user_type || 'farmer',
-        phone: userData.phone,
-        address: userData.address,
-        avatar: userData.avatar || userData.profilePicture,
+        phone: userData.phone || userData.phone_number || null,
+        address: userData.address || null,
+        // Prefer explicit `avatar_url` then common alternatives
+        avatar: userData.avatar || userData.profilePicture || userData.avatar_url || userData.profile_picture || null,
+        avatar_url: userData.avatar_url || userData.avatar || userData.profilePicture || null,
+        age: typeof userData.age === 'number' ? userData.age : (userData.age ? Number(userData.age) : null),
+        gender: userData.gender || null,
         is_admin: userData.is_admin || userData.isAdmin || false,
-        is_verified: userData.is_verified || userData.isVerified || false
+        is_verified: userData.is_verified || userData.isVerified || false,
+        is_active: typeof userData.is_active === 'boolean' ? userData.is_active : (userData.isActive ?? true),
+        created_at: userData.created_at || userData.createdAt || null,
+        updated_at: userData.updated_at || userData.updatedAt || null,
       };
 
       console.log('Normalized user data:', normalizedUser);
@@ -158,7 +165,8 @@ export const useAuthStore = create<AuthStore>((set) => ({
     register: async (data: RegisterData) => {
     try {
       const response = await httpClient.post<AuthResponse>('/auth/register', data);
-      const { user } = response.data;
+  const { user: regUser } = response.data;
+  const regUserAny: any = regUser;
   // Try multiple common locations for the token
   const respDataAny: any = response.data as any;
   let access_token: any = respDataAny?.access_token ?? respDataAny?.token ?? respDataAny?.accessToken ?? null;
@@ -176,13 +184,32 @@ export const useAuthStore = create<AuthStore>((set) => ({
       if (!tokenString) {
         console.warn('Register: no token found in response; user created but not authenticated automatically', { response: response.data });
         // If there's no token, just set user but don't mark authenticated
-        set({ user, token: null, isAuthenticated: false });
+        set({ user: regUser, token: null, isAuthenticated: false });
         return;
+      }
+
+      // Normalize registered user similarly to login
+      const normalizedRegUser = {
+        id: regUserAny?.id || regUserAny?._id || regUserAny?.userId,
+        name: regUserAny?.name || regUserAny?.username || regUserAny?.displayName,
+        email: regUserAny?.email,
+        role: regUserAny?.role || regUserAny?.user_type || 'farmer',
+        phone: regUserAny?.phone || regUserAny?.phone_number || null,
+        address: regUserAny?.address || null,
+        avatar: regUserAny?.avatar || regUserAny?.profilePicture || regUserAny?.avatar_url || null,
+        avatar_url: regUserAny?.avatar_url || regUserAny?.avatar || regUserAny?.profilePicture || null,
+        age: typeof regUserAny?.age === 'number' ? regUserAny.age : (regUserAny?.age ? Number(regUserAny.age) : null),
+        gender: regUserAny?.gender || null,
+        is_admin: regUserAny?.is_admin || regUserAny?.isAdmin || false,
+        is_verified: regUserAny?.is_verified || regUserAny?.isVerified || false,
+        is_active: typeof regUserAny?.is_active === 'boolean' ? regUserAny.is_active : (regUserAny?.isActive ?? true),
+        created_at: regUserAny?.created_at || regUserAny?.createdAt || null,
+        updated_at: regUserAny?.updated_at || regUserAny?.updatedAt || null,
       }
 
       // Save token and update store
       localStorage.setItem('token', tokenString);
-      set({ user, token: tokenString, isAuthenticated: true });
+      set({ user: normalizedRegUser, token: tokenString, isAuthenticated: true });
     } catch (error) {
       throw error;
     }

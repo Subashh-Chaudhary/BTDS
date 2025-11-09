@@ -5,6 +5,8 @@ export declare class UpdateUserDto {
     phone?: string;
     address?: string;
     avatar_url?: string;
+    age?: number;
+    gender?: string;
     is_verified?: boolean;
     is_active?: boolean;
 }

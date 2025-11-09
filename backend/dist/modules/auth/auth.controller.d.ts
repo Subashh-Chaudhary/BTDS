@@ -27,14 +27,8 @@ export declare class AuthController {
         access_token: string;
     }>>;
     googleLogin(): void;
-    googleLoginCallback(req: GoogleAuthRequest): import("src/common/interfaces").IApiSuccessResponse<{
-        user: {
-            id: string | number;
-            email: string;
-            name: string;
-            auth_provider: string;
-            provider_id: string;
-        };
+    googleLoginCallback(req: GoogleAuthRequest): Promise<import("src/common/interfaces").IApiSuccessResponse<{
+        user: Record<string, unknown>;
         access_token: string;
-    }>;
+    }>>;
 }

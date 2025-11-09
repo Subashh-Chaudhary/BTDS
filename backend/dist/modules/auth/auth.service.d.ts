@@ -44,6 +44,7 @@ export declare class AuthService {
     }>;
     private findUserByEmail;
     generateToken(user: IUserData): string;
+    getFullUserById(id: string): Promise<Record<string, unknown>>;
     verifyToken(token: string): any;
     private verifyPassword;
 }
