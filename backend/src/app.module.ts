@@ -16,6 +16,7 @@ import { UsersModule } from './modules/users/users.module';
 import { HistoriesModule } from './modules/histories/histories.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { ScansModule } from './modules/scans/scans.module';
+import { FeedbacksModule } from './modules/feedbacks/feedbacks.module';
 
 @Module({
   imports: [
@@ -66,6 +67,7 @@ import { ScansModule } from './modules/scans/scans.module';
     HistoriesModule,
     ReportsModule,
     ScansModule,
+    FeedbacksModule,
   ],
   controllers: [AppController],
   providers: [AppService, DatabaseService],

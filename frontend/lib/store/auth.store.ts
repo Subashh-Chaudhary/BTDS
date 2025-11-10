@@ -2,6 +2,44 @@ import { create } from 'zustand';
 import { httpClient } from '@/lib/http-client';
 import { AuthResponse, AuthStore, LoginData, RegisterData } from '@/lib/types/auth.types';
 
+// Normalizes various backend user shapes into a stable shape consumed by the UI
+const normalizeUser = (userData: any) => {
+  if (!userData) return null;
+
+  return {
+    id: userData.id ?? userData._id ?? userData.userId ?? null,
+    name: userData.name ?? userData.username ?? userData.displayName ?? null,
+    email: userData.email ?? null,
+    phone: userData.phone ?? userData.phone_number ?? null,
+    address: userData.address ?? null,
+    hospital_name: userData.hospital_name ?? null,
+    auth_provider: userData.auth_provider ?? userData.provider ?? null,
+    // avatar helpers
+    avatar: userData.avatar ?? userData.profilePicture ?? userData.avatar_url ?? null,
+    avatar_url: userData.avatar_url ?? userData.avatar ?? userData.profilePicture ?? null,
+    age: typeof userData.age === 'number' ? userData.age : (userData.age ? Number(userData.age) : null),
+    gender: userData.gender ?? null,
+    is_admin: userData.is_admin ?? userData.isAdmin ?? false,
+    is_verified: userData.is_verified ?? userData.isVerified ?? false,
+    is_active: typeof userData.is_active === 'boolean' ? userData.is_active : (userData.isActive ?? true),
+    last_login_at: userData.last_login_at ?? userData.lastLoginAt ?? null,
+    created_at: userData.created_at ?? userData.createdAt ?? null,
+    updated_at: userData.updated_at ?? userData.updatedAt ?? null,
+    password_reset_token: userData.password_reset_token ?? userData.passwordResetToken ?? null,
+    provider_id: userData.provider_id ?? userData.providerId ?? null,
+    qualification_docs: userData.qualification_docs ?? null,
+    refresh_token: userData.refresh_token ?? null,
+    refresh_token_expires_at: userData.refresh_token_expires_at ?? null,
+    reset_token_expires_at: userData.reset_token_expires_at ?? null,
+    verification_token: userData.verification_token ?? null,
+    verification_token_expires_at: userData.verification_token_expires_at ?? null,
+    specialization: userData.specialization ?? null,
+    // Provide both role and user_type keys (some backends use different names)
+    role: userData.role ?? userData.user_type ?? 'user',
+    user_type: userData.user_type ?? userData.role ?? 'user',
+  } as any;
+};
+
 export const useAuthStore = create<AuthStore>((set) => ({
   user: null,
   token: typeof window !== 'undefined' ? localStorage.getItem('token') : null,
@@ -26,8 +64,10 @@ export const useAuthStore = create<AuthStore>((set) => ({
           return;
         }
 
+        // Normalize backend user shape before saving to store
+        const normalized = normalizeUser(response.data.user);
         set({
-          user: response.data.user,
+          user: normalized,
           token,
           isAuthenticated: true,
           initialized: true,
@@ -54,6 +94,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
 
       console.log('Attempting login with:', { email: data.email });
       const response = await httpClient.post('/auth/login', data);
+      console.log('Login response received:', response);
       
       // Log the full response for debugging
       console.log('Raw server response:', response.data);
@@ -103,29 +144,21 @@ export const useAuthStore = create<AuthStore>((set) => ({
         throw new Error('Invalid response from server - no user data received');
       }
 
-      // Create a normalized user object (map common backend keys to a stable shape)
-      const normalizedUser = {
-        id: userData.id || userData._id || userData.userId,
-        name: userData.name || userData.username || userData.displayName,
-        email: userData.email,
-        role: userData.role || userData.user_type || 'farmer',
-        phone: userData.phone || userData.phone_number || null,
-        address: userData.address || null,
-        // Prefer explicit `avatar_url` then common alternatives
-        avatar: userData.avatar || userData.profilePicture || userData.avatar_url || userData.profile_picture || null,
-        avatar_url: userData.avatar_url || userData.avatar || userData.profilePicture || null,
-        age: typeof userData.age === 'number' ? userData.age : (userData.age ? Number(userData.age) : null),
-        gender: userData.gender || null,
-        is_admin: userData.is_admin || userData.isAdmin || false,
-        is_verified: userData.is_verified || userData.isVerified || false,
-        is_active: typeof userData.is_active === 'boolean' ? userData.is_active : (userData.isActive ?? true),
-        created_at: userData.created_at || userData.createdAt || null,
-        updated_at: userData.updated_at || userData.updatedAt || null,
-      };
+      console.log('Raw user data from response:', userData);
+      let normalizedUser = normalizeUser(userData) as any;
+
+      // Merge any user_type returned at the payload level (e.g. data.user_type)
+      const payloadUserType = payload?.user_type ?? response.data?.user_type ?? null;
+      if (payloadUserType) {
+        normalizedUser = {
+          ...normalizedUser,
+          role: payloadUserType,
+        };
+      }
 
       console.log('Normalized user data:', normalizedUser);
 
-      if (!normalizedUser.id || !normalizedUser.email) {
+      if (!normalizedUser || !normalizedUser.id || !normalizedUser.email) {
         console.error('Invalid user data structure:', userData);
         throw new Error('Invalid user data structure received from server');
       }
@@ -188,23 +221,12 @@ export const useAuthStore = create<AuthStore>((set) => ({
         return;
       }
 
-      // Normalize registered user similarly to login
-      const normalizedRegUser = {
-        id: regUserAny?.id || regUserAny?._id || regUserAny?.userId,
-        name: regUserAny?.name || regUserAny?.username || regUserAny?.displayName,
-        email: regUserAny?.email,
-        role: regUserAny?.role || regUserAny?.user_type || 'farmer',
-        phone: regUserAny?.phone || regUserAny?.phone_number || null,
-        address: regUserAny?.address || null,
-        avatar: regUserAny?.avatar || regUserAny?.profilePicture || regUserAny?.avatar_url || null,
-        avatar_url: regUserAny?.avatar_url || regUserAny?.avatar || regUserAny?.profilePicture || null,
-        age: typeof regUserAny?.age === 'number' ? regUserAny.age : (regUserAny?.age ? Number(regUserAny.age) : null),
-        gender: regUserAny?.gender || null,
-        is_admin: regUserAny?.is_admin || regUserAny?.isAdmin || false,
-        is_verified: regUserAny?.is_verified || regUserAny?.isVerified || false,
-        is_active: typeof regUserAny?.is_active === 'boolean' ? regUserAny.is_active : (regUserAny?.isActive ?? true),
-        created_at: regUserAny?.created_at || regUserAny?.createdAt || null,
-        updated_at: regUserAny?.updated_at || regUserAny?.updatedAt || null,
+      // Normalize registered user using helper
+      let normalizedRegUser = normalizeUser(regUserAny) as any;
+      // If the API returned user_type at the response level, merge it in
+      const respUserType = respDataAny?.user_type ?? null;
+      if (respUserType) {
+        normalizedRegUser = { ...normalizedRegUser, role: respUserType };
       }
 
       // Save token and update store

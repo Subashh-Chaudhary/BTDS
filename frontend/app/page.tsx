@@ -6,6 +6,8 @@ import Hero from "@/components/hero"
 import Features from "@/components/features"
 import HowItWorks from "@/components/how-it-works"
 import UploadSection from "@/components/upload-section"
+import ExpertDashboard from "@/components/expert-dashboard"
+import { useAuthStore } from '@/lib/store/auth.store'
 import Footer from "@/components/footer"
 
 export default function Home() {
@@ -18,13 +20,15 @@ export default function Home() {
     loadLocomotiveScroll()
   }, [])
 
+  const user = useAuthStore((s) => s.user)
+
   return (
     <main data-scroll-container>
       <Navigation />
       <Hero />
       <Features />
       <HowItWorks />
-      <UploadSection />
+      {user?.role !== 'expert' && <UploadSection />}
       <Footer />
     </main>
   )

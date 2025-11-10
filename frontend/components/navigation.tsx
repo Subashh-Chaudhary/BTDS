@@ -24,6 +24,7 @@ export default function Navigation() {
   const initialized = useAuthStore((s) => s.initialized)
   const [mounted, setMounted] = useState(false)
 
+
   // Avoid rendering auth-dependent UI during SSR/initial hydration to prevent
   // mismatches between server and client HTML. Only show auth UI after mount.
   useEffect(() => {
@@ -50,16 +51,32 @@ export default function Navigation() {
             <Link href="#how-it-works" className="text-sm text-muted-foreground hover:text-foreground transition">
               How It Works
             </Link>
-            <Link
-              href={mounted && isAuthenticated ? "#upload" : "#"}
-              onClick={(e) => !(mounted && isAuthenticated) && e.preventDefault()}
-              className={`text-sm ${(mounted && isAuthenticated) ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/50 cursor-not-allowed'} transition`}
-            >
-              Upload
-            </Link>
-            <Link href="#about" className="text-sm text-muted-foreground hover:text-foreground transition">
+            {user?.role === 'user' && (
+              <Link
+                href={mounted && isAuthenticated ? "#upload" : "#"}
+                onClick={(e) => !(mounted && isAuthenticated) && e.preventDefault()}
+                className={`text-sm ${(mounted && isAuthenticated) ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/50 cursor-not-allowed'} transition`}
+              >
+                Upload
+              </Link>
+            )}
+
+            {user?.role === 'expert' && (
+              <Link
+                href={mounted && isAuthenticated ? "/predictions" : "#"}
+                onClick={(e) => !(mounted && isAuthenticated) && e.preventDefault()}
+                className={`text-sm ${(mounted && isAuthenticated) ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/50 cursor-not-allowed'} transition`}
+              >
+                Predictions
+              </Link>
+            )}
+
+          
+            {user?.role === 'user' && (
+              <Link href="#about" className="text-sm text-muted-foreground hover:text-foreground transition">
               About
             </Link>
+            )}
           </div>
 
           {/* Auth Buttons / Profile */}
@@ -130,6 +147,15 @@ export default function Navigation() {
             >
               Upload
             </Link>
+            {user?.role === 'expert' && (
+              <Link
+                href={isAuthenticated ? "/predictions" : "#"}
+                onClick={(e) => !isAuthenticated && e.preventDefault()}
+                className={`block px-4 py-2 text-sm ${isAuthenticated ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/50 cursor-not-allowed'}`}
+              >
+                Predictions
+              </Link>
+            )}
             <Link href="#about" className="block px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
               About
             </Link>
