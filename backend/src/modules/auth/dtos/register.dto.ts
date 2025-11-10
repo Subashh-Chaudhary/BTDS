@@ -32,8 +32,8 @@ export class RegisterDto {
   confirm_password: string;
 
   @IsNotEmpty({ message: 'User type is required' })
-  @IsIn(['farmer', 'expert'], {
-    message: 'User type must be either farmer or expert',
+  @IsIn(['user', 'expert'], {
+    message: 'User type must be either user or expert',
   })
-  user_type: 'farmer' | 'expert';
+  user_type: 'user' | 'expert';
 }

@@ -1,4 +1,4 @@
-export type UserRole = 'farmer' | 'expert';
+export type UserRole = 'user' | 'expert';
 
 export interface RegisterData {
   name: string;

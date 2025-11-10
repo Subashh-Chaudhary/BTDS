@@ -13,6 +13,7 @@ export declare class AuthController {
     login(loginDto: LoginDto, req: Request): Promise<import("src/common/interfaces").IApiSuccessResponse<{
         user: Record<string, unknown>;
         access_token: string;
+        user_type: "user" | "expert";
     }>>;
     verifyEmail(token: string, req: Request): Promise<import("src/common/interfaces").IApiSuccessResponse<{
         message: string;

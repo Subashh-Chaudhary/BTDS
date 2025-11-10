@@ -29,6 +29,7 @@ export declare class AuthService {
     login(loginDto: LoginDto): Promise<{
         user: Record<string, unknown>;
         access_token: string;
+        user_type: 'user' | 'expert';
     }>;
     verifyEmail(token: string): Promise<{
         message: string;

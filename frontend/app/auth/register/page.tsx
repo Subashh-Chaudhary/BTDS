@@ -26,7 +26,7 @@ const registerSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
   confirm_password: z.string(),
-  user_type: z.enum(['farmer', 'expert'], {
+  user_type: z.enum(['user', 'expert'], {
     required_error: "Please select a user type",
   }),
 }).refine((data) => data.password === data.confirm_password, {
@@ -174,7 +174,7 @@ export default function RegisterPage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="farmer">Farmer</SelectItem>
+                        <SelectItem value="user">User</SelectItem>
                         <SelectItem value="expert">Expert</SelectItem>
                       </SelectContent>
                     </Select>

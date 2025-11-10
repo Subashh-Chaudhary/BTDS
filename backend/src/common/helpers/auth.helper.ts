@@ -37,7 +37,7 @@ export class AuthHelper {
     if (user) {
       return {
         id: user.id,
-        user_type: 'farmer',
+        user_type: 'user',
         verification_token: user.verification_token,
         verification_token_expires_at: user.verification_token_expires_at,
       };
@@ -86,7 +86,7 @@ export class AuthHelper {
     if (user) {
       return {
         id: user.id,
-        user_type: 'farmer',
+        user_type: 'user',
         password_reset_token: user.password_reset_token,
         reset_token_expires_at: user.reset_token_expires_at,
       };
@@ -137,7 +137,7 @@ export class AuthHelper {
     if (user) {
       return {
         id: user.id,
-        user_type: 'farmer',
+        user_type: 'user',
         refresh_token: user.refresh_token,
         refresh_token_expires_at: user.refresh_token_expires_at,
         email: user.email,

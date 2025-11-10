@@ -1,5 +1,5 @@
 export declare enum UserRole {
-    FARMER = "farmer",
+    FARMER = "user",
     EXPERT = "expert",
     ADMIN = "admin"
 }

@@ -64,7 +64,7 @@ export class AuthService {
       }
     }
 
-    if (registerDto.user_type === 'farmer') {
+    if (registerDto.user_type === 'user') {
       if (existingUser) {
         throw new ConflictException('User with this email already exists');
       }
@@ -115,7 +115,7 @@ export class AuthService {
   }
 
   /**
-   * Create a new user (farmer)
+  * Create a new user (user)
    * @param userData - User registration data
    * @returns Created user object
    */
@@ -172,7 +172,7 @@ export class AuthService {
    */
   async login(
     loginDto: LoginDto,
-  ): Promise<{ user: Record<string, unknown>; access_token: string }> {
+  ): Promise<{ user: Record<string, unknown>; access_token: string; user_type: 'user' | 'expert' }> {
     // Find user by email in both tables
     const user = await this.findUserByEmail(loginDto.email);
     if (!user) {
@@ -193,11 +193,12 @@ export class AuthService {
       await this.expertRepo.updateLastLogin(user.id.toString());
     }
 
-    // Generate JWT token
+    // Generate JWT token (include user_type)
     const payload = {
       sub: user.id,
       email: user.email,
       name: user.name,
+      user_type: (user as any).user_type || ((await this.expertService.findByEmail(loginDto.email)) ? 'expert' : 'user'),
     };
 
     const access_token = this.jwtService.sign(payload);
@@ -213,9 +214,13 @@ export class AuthService {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _pwd, ...userWithoutPassword } = fullUser;
 
+    // Determine user_type from earlier detection or from fullUser if available
+    const detectedUserType = (user as any).user_type || (fullUser && fullUser.is_active !== undefined ? 'expert' : 'user');
+
     return {
       user: userWithoutPassword as Record<string, unknown>,
       access_token,
+      user_type: detectedUserType as 'user' | 'expert',
     };
   }
 
@@ -389,7 +394,7 @@ export class AuthService {
    */
   private async findUserByEmail(
     email: string,
-  ): Promise<UserWithPassword | undefined> {
+  ): Promise<UserWithPassword | (UserWithPassword & { user_type: 'user' | 'expert' }) | undefined> {
     // Check in users table
     const user = await this.usersService.findByEmail(email);
     if (user) {
@@ -398,6 +403,7 @@ export class AuthService {
         email: user.email,
         name: user.name,
         password: user.password,
+        user_type: 'user',
       };
     }
 
@@ -409,6 +415,7 @@ export class AuthService {
         email: expert.email,
         name: expert.name,
         password: expert.password,
+        user_type: 'expert',
       };
     }
 
