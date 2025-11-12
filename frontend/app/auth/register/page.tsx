@@ -49,7 +49,7 @@ export default function RegisterPage() {
       email: "",
       password: "",
       confirm_password: "",
-      user_type: undefined,
+      user_type: 'user',
     },
   });
 
@@ -163,11 +163,11 @@ export default function RegisterPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>User Type</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                      disabled={isLoading}
-                    >
+                      <Select
+                        value={field.value ?? 'user'}
+                        onValueChange={field.onChange}
+                        disabled={isLoading}
+                      >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select your user type" />

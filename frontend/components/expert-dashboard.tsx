@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label'
 import { toast } from '@/hooks/use-toast'
 import { httpClient } from '@/lib/http-client'
 import { X as XIcon } from 'lucide-react'
+import AdminUsers from './admin-users'
+import { useAuthStore } from '@/lib/store/auth.store'
 
 type ScanItem = {
   id: string
@@ -18,6 +20,11 @@ type ScanItem = {
 }
 
 export default function ExpertDashboard() {
+  const currentUser = useAuthStore((s) => s.user)
+  // Render admin UI for admins
+  if (currentUser?.is_admin) {
+    return <AdminUsers />
+  }
   const [scans, setScans] = useState<ScanItem[]>([])
   const [loading, setLoading] = useState(false)
   const [feedbackById, setFeedbackById] = useState<Record<string, string>>({})

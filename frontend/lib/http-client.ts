@@ -82,12 +82,13 @@ httpClient.interceptors.response.use(
     }
 
     // Handle 401 error (unauthorized)
+    // NOTE: do not clear localStorage or redirect automatically here. Clearing
+    // the token on any 401 causes the app to log the user out on refresh when
+    // the backend may be temporarily rejecting requests. The auth store should
+    // decide when to remove the token (explicit logout).
     if (error.response?.status === 401) {
-      // Clear localStorage and redirect to login
-      if (typeof window !== 'undefined') {
-        localStorage.clear();
-        window.location.href = '/auth/login';
-      }
+      console.warn('API returned 401 Unauthorized; leaving token in storage per client policy')
+      // Optionally, we could notify the app via a callback here.
     }
     return Promise.reject(error);
   }

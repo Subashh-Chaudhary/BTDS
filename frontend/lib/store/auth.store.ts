@@ -2,6 +2,31 @@ import { create } from 'zustand';
 import { httpClient } from '@/lib/http-client';
 import { AuthResponse, AuthStore, LoginData, RegisterData } from '@/lib/types/auth.types';
 
+// Simple localStorage helpers for caching user to avoid UI logging out on refresh
+const USER_CACHE_KEY = 'auth_user';
+const readCachedUser = (): any | null => {
+  try {
+    if (typeof window === 'undefined') return null;
+    const raw = localStorage.getItem(USER_CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+};
+const writeCachedUser = (user: any | null) => {
+  try {
+    if (typeof window === 'undefined') return;
+    if (!user) {
+      localStorage.removeItem(USER_CACHE_KEY);
+    } else {
+      localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
+    }
+  } catch {
+    // ignore cache errors
+  }
+};
+
 // Normalizes various backend user shapes into a stable shape consumed by the UI
 const normalizeUser = (userData: any) => {
   if (!userData) return null;
@@ -43,7 +68,10 @@ const normalizeUser = (userData: any) => {
 export const useAuthStore = create<AuthStore>((set) => ({
   user: null,
   token: typeof window !== 'undefined' ? localStorage.getItem('token') : null,
-  isAuthenticated: typeof window !== 'undefined' ? !!localStorage.getItem('token') : false,
+  // Do not treat presence of token as authenticated until we successfully
+  // validate it and load the user. This prevents the UI from showing a
+  // logged-in state (and placeholder names) before `/auth/me` completes.
+  isAuthenticated: false,
   // `initialized` flips to true once we've checked localStorage and optionally
   // verified the token via /auth/me. Components should wait for this to avoid
   // rendering a transient authenticated UI when the token is invalid.
@@ -51,39 +79,51 @@ export const useAuthStore = create<AuthStore>((set) => ({
 
   initializeAuth: async () => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    if (token) {
-      try {
-        const response = await httpClient.get<{ user: AuthResponse['user'] }>('/auth/me');
+    const cached = readCachedUser();
 
-        // Ensure the response contains a user; if not, treat as invalid token.
-        if (!response || response.status < 200 || response.status >= 300 || !response.data?.user) {
-          console.warn('initializeAuth: /auth/me returned unexpected response', { status: response?.status, data: response?.data });
-          // Clear invalid token and mark unauthenticated
-          localStorage.removeItem('token');
-          set({ user: null, token: null, isAuthenticated: false, initialized: true });
-          return;
-        }
-
-        // Normalize backend user shape before saving to store
-        const normalized = normalizeUser(response.data.user);
-        set({
-          user: normalized,
-          token,
-          isAuthenticated: true,
-          initialized: true,
-        });
-      } catch (error) {
-        localStorage.removeItem('token');
-        set({
-          user: null,
-          token: null,
-          isAuthenticated: false,
-          initialized: true,
-        });
-      }
-    } else {
+    if (!token) {
       // No token present, mark initialization complete so UI can show login/register
       set({ initialized: true });
+      return;
+    }
+
+    // If we have a cached user, hydrate immediately so the UI doesn't flash
+    // logged-out state on refresh. Then refresh in the background.
+    if (cached && cached.id && cached.email) {
+      set({ user: cached, token, isAuthenticated: true, initialized: true });
+    }
+
+    try {
+      const response = await httpClient.get<{ user: AuthResponse['user'] }>('/auth/me');
+      const respAny: any = response;
+      const payload = respAny?.data?.data ?? respAny?.data;
+      const userObj = payload?.user ?? payload;
+
+      if (!userObj || !userObj.id || !userObj.email) {
+        console.warn('initializeAuth: /auth/me returned no valid user payload', { status: response?.status, data: response?.data });
+        // If no cached user was available, reflect unauthenticated; otherwise keep cached session
+        if (!cached) set({ user: null, token, isAuthenticated: false, initialized: true });
+        return;
+      }
+
+      const normalized = normalizeUser(userObj);
+      // Persist fresh user to cache
+      writeCachedUser(normalized);
+      set({ user: normalized, token, isAuthenticated: true, initialized: true });
+    } catch (error: any) {
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) {
+        console.warn('initializeAuth failed /auth/me (401/403):', status);
+        // Token is invalid — reflect unauthenticated and clear cached user
+        writeCachedUser(null);
+        set({ user: null, token, isAuthenticated: false, initialized: true });
+      } else {
+        // Network/server/transient error — keep whatever state we had (cached if any)
+        console.warn('initializeAuth transient error — keeping cached session if present:', error?.message || status);
+        if (!cached) {
+          set({ user: null, token, isAuthenticated: false, initialized: true });
+        }
+      }
     }
   },
   login: async (data: LoginData) => {
@@ -163,15 +203,11 @@ export const useAuthStore = create<AuthStore>((set) => ({
         throw new Error('Invalid user data structure received from server');
       }
 
-      // Save token to localStorage (string only)
+      // Save token and cache user
       localStorage.setItem('token', tokenString);
-      
+      writeCachedUser(normalizedUser);
       // Update store with normalized string token
-      set({
-        user: normalizedUser,
-        token: tokenString,
-        isAuthenticated: true,
-      });
+      set({ user: normalizedUser, token: tokenString, isAuthenticated: true });
       
       // Verify the store was updated
       const currentState = useAuthStore.getState();
@@ -229,17 +265,19 @@ export const useAuthStore = create<AuthStore>((set) => ({
         normalizedRegUser = { ...normalizedRegUser, role: respUserType };
       }
 
-      // Save token and update store
-      localStorage.setItem('token', tokenString);
-      set({ user: normalizedRegUser, token: tokenString, isAuthenticated: true });
+  // Save token and update store, cache user
+  localStorage.setItem('token', tokenString);
+  writeCachedUser(normalizedRegUser);
+  set({ user: normalizedRegUser, token: tokenString, isAuthenticated: true });
     } catch (error) {
       throw error;
     }
   },
 
   logout: () => {
-    // Clear localStorage
-    localStorage.removeItem('token');
+  // Clear localStorage
+  localStorage.removeItem('token');
+  writeCachedUser(null);
     
     // Reset store
     set({

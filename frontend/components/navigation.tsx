@@ -24,6 +24,10 @@ export default function Navigation() {
   const initialized = useAuthStore((s) => s.initialized)
   const [mounted, setMounted] = useState(false)
 
+  const isAdmin = !!user?.is_admin
+  // prefer explicit user_type then role for backward compatibility
+  const roleOrType = ((user as any)?.user_type ?? user?.role ?? '').toString()
+
 
   // Avoid rendering auth-dependent UI during SSR/initial hydration to prevent
   // mismatches between server and client HTML. Only show auth UI after mount.
@@ -51,7 +55,16 @@ export default function Navigation() {
             <Link href="#how-it-works" className="text-sm text-muted-foreground hover:text-foreground transition">
               How It Works
             </Link>
-            {user?.role === 'user' && (
+            {/* Admins see Users (manage users). Non-admins: show Upload for regular users and Predictions for experts. */}
+            {isAdmin ? (
+              <Link
+                href={mounted && isAuthenticated ? "/predictions" : "#"}
+                onClick={(e) => !(mounted && isAuthenticated) && e.preventDefault()}
+                className={`text-sm ${(mounted && isAuthenticated) ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/50 cursor-not-allowed'} transition`}
+              >
+                Users
+              </Link>
+            ) : roleOrType === 'user' ? (
               <Link
                 href={mounted && isAuthenticated ? "#upload" : "#"}
                 onClick={(e) => !(mounted && isAuthenticated) && e.preventDefault()}
@@ -59,9 +72,7 @@ export default function Navigation() {
               >
                 Upload
               </Link>
-            )}
-
-            {user?.role === 'expert' && (
+            ) : roleOrType === 'expert' ? (
               <Link
                 href={mounted && isAuthenticated ? "/predictions" : "#"}
                 onClick={(e) => !(mounted && isAuthenticated) && e.preventDefault()}
@@ -69,7 +80,7 @@ export default function Navigation() {
               >
                 Predictions
               </Link>
-            )}
+            ) : null}
 
           
             {user?.role === 'user' && (
@@ -83,7 +94,7 @@ export default function Navigation() {
           <div className="hidden md:flex items-center gap-4">
             {/* During SSR/mount we render the non-authenticated view to match server HTML.
                 After mount, the real `isAuthenticated` will be reflected. */}
-            {!mounted || !initialized || !isAuthenticated ? (
+            {!mounted || !initialized || !isAuthenticated || !user ? (
               <>
                 <Link href="/auth/login" className="text-sm text-muted-foreground hover:text-foreground transition">
                   Login
@@ -140,22 +151,20 @@ export default function Navigation() {
             <Link href="#how-it-works" className="block px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
               How It Works
             </Link>
-            <Link 
-              href={isAuthenticated ? "#upload" : "#"} 
-              onClick={(e) => !isAuthenticated && e.preventDefault()}
-              className={`block px-4 py-2 text-sm ${isAuthenticated ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/50 cursor-not-allowed'}`}
-            >
-              Upload
-            </Link>
-            {user?.role === 'expert' && (
-              <Link
-                href={isAuthenticated ? "/predictions" : "#"}
-                onClick={(e) => !isAuthenticated && e.preventDefault()}
-                className={`block px-4 py-2 text-sm ${isAuthenticated ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/50 cursor-not-allowed'}`}
-              >
+            {/* Mobile: admin -> Users, user -> Upload, expert -> Predictions */}
+            {isAdmin ? (
+              <Link href={isAuthenticated ? "/predictions" : "#"} onClick={(e) => !isAuthenticated && e.preventDefault()} className={`block px-4 py-2 text-sm ${isAuthenticated ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/50 cursor-not-allowed'}`}>
+                Users
+              </Link>
+            ) : roleOrType === 'user' ? (
+              <Link href={isAuthenticated ? "#upload" : "#"} onClick={(e) => !isAuthenticated && e.preventDefault()} className={`block px-4 py-2 text-sm ${isAuthenticated ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/50 cursor-not-allowed'}`}>
+                Upload
+              </Link>
+            ) : roleOrType === 'expert' ? (
+              <Link href={isAuthenticated ? "/predictions" : "#"} onClick={(e) => !isAuthenticated && e.preventDefault()} className={`block px-4 py-2 text-sm ${isAuthenticated ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/50 cursor-not-allowed'}`}>
                 Predictions
               </Link>
-            )}
+            ) : null}
             <Link href="#about" className="block px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
               About
             </Link>
