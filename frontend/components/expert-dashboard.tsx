@@ -21,10 +21,7 @@ type ScanItem = {
 
 export default function ExpertDashboard() {
   const currentUser = useAuthStore((s) => s.user)
-  // Render admin UI for admins
-  if (currentUser?.is_admin) {
-    return <AdminUsers />
-  }
+  const isAdmin = !!currentUser?.is_admin
   const [scans, setScans] = useState<ScanItem[]>([])
   const [loading, setLoading] = useState(false)
   const [feedbackById, setFeedbackById] = useState<Record<string, string>>({})
@@ -52,8 +49,10 @@ export default function ExpertDashboard() {
   }
 
   useEffect(() => {
-    loadScans()
-  }, [])
+    if (!isAdmin) {
+      loadScans()
+    }
+  }, [isAdmin])
 
   const handleFeedbackChange = (id: string, value: string) => {
     setFeedbackById(prev => ({ ...prev, [id]: value }))
@@ -97,6 +96,10 @@ export default function ExpertDashboard() {
   const closePreview = () => {
     setPreviewOpen(false)
     setTimeout(() => setPreviewSrc(null), 200)
+  }
+
+  if (isAdmin) {
+    return <AdminUsers />
   }
 
   return (

@@ -21,6 +21,15 @@ export default function UploadSection() {
   const initializeAuth = useAuthStore((s) => s.initializeAuth)
   const { toast } = useToast()
 
+  // Hide upload/analyze section for expert users and admins per requirements
+  // `user_type` isn't on the typed AuthResponse, but normalizeUser adds it.
+  // Fallback to role so we don't rely on widened types here.
+  const isExpert = (user as any)?.user_type === 'expert' || user?.role === 'expert'
+  const isAdmin = !!user?.is_admin
+  if (isExpert || isAdmin) {
+    return null // Experts and admins should not see the upload UI
+  }
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(true)

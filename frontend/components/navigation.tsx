@@ -26,7 +26,8 @@ export default function Navigation() {
 
   const isAdmin = !!user?.is_admin
   // prefer explicit user_type then role for backward compatibility
-  const roleOrType = ((user as any)?.user_type ?? user?.role ?? '').toString()
+  // Prefer `role` (we explicitly sync it on login/register) then fallback to user_type.
+  const roleOrType = (user?.role ?? (user as any)?.user_type ?? '').toString()
 
 
   // Avoid rendering auth-dependent UI during SSR/initial hydration to prevent

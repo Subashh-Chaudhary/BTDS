@@ -106,7 +106,16 @@ export const useAuthStore = create<AuthStore>((set) => ({
         return;
       }
 
-      const normalized = normalizeUser(userObj);
+      let normalized = normalizeUser(userObj) as any;
+      // Preserve role/user_type from cache if API omits them or downgrades unexpectedly
+      if (cached) {
+        if (!normalized.role || (normalized.role === 'user' && cached.role === 'expert')) {
+          normalized.role = cached.role ?? normalized.role;
+        }
+        if (!(normalized as any).user_type || ((normalized as any).user_type === 'user' && (cached as any).user_type === 'expert')) {
+          (normalized as any).user_type = (cached as any).user_type ?? (normalized as any).user_type;
+        }
+      }
       // Persist fresh user to cache
       writeCachedUser(normalized);
       set({ user: normalized, token, isAuthenticated: true, initialized: true });
@@ -193,7 +202,8 @@ export const useAuthStore = create<AuthStore>((set) => ({
         normalizedUser = {
           ...normalizedUser,
           role: payloadUserType,
-        };
+          user_type: payloadUserType,
+        } as any;
       }
 
       console.log('Normalized user data:', normalizedUser);
@@ -262,7 +272,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       // If the API returned user_type at the response level, merge it in
       const respUserType = respDataAny?.user_type ?? null;
       if (respUserType) {
-        normalizedRegUser = { ...normalizedRegUser, role: respUserType };
+        normalizedRegUser = { ...normalizedRegUser, role: respUserType, user_type: respUserType } as any;
       }
 
   // Save token and update store, cache user

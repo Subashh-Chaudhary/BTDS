@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   ParseIntPipe,
+  ParseUUIDPipe,
   Put,
   Post,
   Query,
@@ -68,7 +69,7 @@ export class UsersController {
    * @returns User details
    */
   @Get('user/:id')
-  async getUserById(@Param('id') id: string, @Res() res: Response) {
+  async getUserById(@Param('id', new ParseUUIDPipe()) id: string, @Res() res: Response) {
     const user = await this.usersService.findById(id);
 
     // Remove password from response
@@ -94,7 +95,7 @@ export class UsersController {
    */
   @Put('user/:id')
   async updateUser(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateUserDto: UpdateUserDto,
     @Res() res: Response,
   ) {
@@ -121,7 +122,7 @@ export class UsersController {
    * @returns Success message
    */
   @Delete('user/:id')
-  async deleteUser(@Param('id') id: string, @Res() res: Response) {
+  async deleteUser(@Param('id', new ParseUUIDPipe()) id: string, @Res() res: Response) {
     const result = await this.usersService.deleteUser(id);
 
     const response = ResponseHelper.success(

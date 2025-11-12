@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from '@/hooks/use-toast'
 import { httpClient } from '@/lib/http-client'
 import { useAuthStore } from '@/lib/store/auth.store'
@@ -17,7 +18,7 @@ export default function AdminUsers() {
   const [loading, setLoading] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({})
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string, user_type?: string } | null>(null)
   const [query, setQuery] = useState('')
   const [editingUser, setEditingUser] = useState<UserItem | null>(null)
   const [form, setForm] = useState({ name: '', email: '', password: '', confirm_password: '', user_type: 'user' })
@@ -70,23 +71,30 @@ export default function AdminUsers() {
 
   const setAction = (id: string, v: boolean) => setActionLoading(prev => ({ ...prev, [id]: v }))
 
-  const toggleActive = async (id: string, value: boolean) => {
+  const toggleActive = async (user: UserItem, value: boolean) => {
     try {
+      const id = user.id
       setAction(id, true)
-      await httpClient.patch(`/users/${id}`, { is_active: value })
+      // Update activation according to DTO/endpoints
+      if (user.user_type === 'expert') {
+        await httpClient.put(`/expert/${id}`, { is_active: value })
+      } else {
+        await httpClient.put(`/user/${id}`, { is_active: value })
+      }
       toast({ title: value ? 'Activated' : 'Deactivated', description: 'User status updated', duration: 3000 })
       loadUsers()
     } catch (err: any) {
       console.error('Failed to update user', err)
       toast({ title: 'Update failed', description: 'Could not update user', duration: 4000 })
     } finally {
-      setAction(id, false)
+      setAction(user.id, false)
     }
   }
 
   const deleteUser = async (id: string, userType?: string) => {
     try {
       setAction(id, true)
+      // Route deletion by user_type per API (experts -> /expert/:id, users -> /user/:id)
       const path = userType === 'expert' ? `/expert/${id}` : `/user/${id}`
       await httpClient.delete(path)
       toast({ title: 'Deleted', description: `${userType === 'expert' ? 'Expert' : 'User'} deleted successfully`, duration: 3000 })
@@ -96,7 +104,7 @@ export default function AdminUsers() {
       toast({ title: 'Delete failed', description: 'Could not delete user', duration: 4000 })
     } finally {
       setAction(id, false)
-      setConfirmDeleteId(null)
+      setConfirmDelete(null)
     }
   }
 
@@ -105,10 +113,45 @@ export default function AdminUsers() {
     setForm({ name: u.name ?? '', email: u.email ?? '', password: '', confirm_password: '', user_type: u.user_type ?? 'user' })
   }
 
+  const validateNewUser = () => {
+    const errors: string[] = []
+    const name = (form.name || '').trim()
+    const email = (form.email || '').trim()
+    const password = form.password || ''
+    const confirm = form.confirm_password || ''
+    const userType = form.user_type
+
+    if (!name) errors.push('Name is required')
+    if (name && name.length < 3) errors.push('Name must be at least 3 characters long')
+    if (name && name.length > 100) errors.push('Name cannot exceed 100 characters')
+
+    const emailRegex = /[^\s@]+@[^\s@]+\.[^\s@]+/
+    if (!email) errors.push('Email is required')
+    if (email && !emailRegex.test(email)) errors.push('Please provide a valid email address')
+
+    if (!password) errors.push('Password is required')
+    if (password && password.length < 8) errors.push('Password must be at least 8 characters long')
+
+    if (!confirm) errors.push('Confirm password is required')
+    if (confirm && password !== confirm) errors.push('Confirm password must match password')
+
+    if (!userType) errors.push('User type is required')
+    if (userType && !['user','expert'].includes(userType)) errors.push('User type must be either user or expert')
+
+    return errors
+  }
+
   const submitNewUser = async () => {
+    // Client-side validations to mirror backend DTO
+    const errors = validateNewUser()
+    if (errors.length) {
+      toast({ title: 'Validation error', description: errors.join('\n'), duration: 5000 })
+      return
+    }
     try {
-      await httpClient.post('/auth/register', form)
-      toast({ title: 'User added', description: 'New user registered', duration: 3000 })
+      const res = await httpClient.post('/auth/register', form)
+      const msg = res?.data?.message || 'User registered successfully'
+      toast({ title: 'User added', description: msg, duration: 3000 })
       setShowAdd(false)
       setForm({ name: '', email: '', password: '', confirm_password: '', user_type: 'user' })
       loadUsers()
@@ -122,8 +165,18 @@ export default function AdminUsers() {
     if (!editingUser) return
     try {
       setAction(editingUser.id, true)
-      const path = (editingUser.user_type === 'expert') ? `/expert/${editingUser.id}` : `/user/${editingUser.id}`
-      await httpClient.patch(path, { name: form.name, email: form.email })
+      // Use PUT and payloads aligned with UpdateUserDto / UpdateExpertDto
+      if (editingUser.user_type === 'expert') {
+        await httpClient.put(`/expert/${editingUser.id}`, {
+          name: form.name,
+          email: form.email,
+        })
+      } else {
+        await httpClient.put(`/user/${editingUser.id}`, {
+          name: form.name,
+          email: form.email,
+        })
+      }
       toast({ title: 'Updated', description: `${editingUser.user_type === 'expert' ? 'Expert' : 'User'} updated`, duration: 3000 })
       setEditingUser(null)
       loadUsers()
@@ -182,13 +235,13 @@ export default function AdminUsers() {
                   <td className="p-3 text-sm">{u.is_active ? <span className="text-green-500">Active</span> : <span className="text-red-500">Inactive</span>}</td>
                   <td className="p-3 text-sm">
                     <div className="flex items-center gap-2">
-                      <Button size="sm" variant={u.is_active ? 'ghost' : 'outline'} onClick={() => toggleActive(u.id, !u.is_active)} disabled={!!actionLoading[u.id]}>
+                      <Button size="sm" variant={u.is_active ? 'ghost' : 'outline'} onClick={() => toggleActive(u, !u.is_active)} disabled={!!actionLoading[u.id]}>
                         {actionLoading[u.id] ? '...' : (u.is_active ? 'Deactivate' : 'Activate')}
                       </Button>
                       {!u.is_admin && (
                         <>
                           <Button size="sm" variant="outline" onClick={() => openEdit(u)}>Edit</Button>
-                          <Button size="sm" variant="destructive" onClick={() => setConfirmDeleteId(u.id)}>Delete</Button>
+                          <Button size="sm" variant="destructive" onClick={() => setConfirmDelete({ id: u.id, user_type: u.user_type })}>Delete</Button>
                         </>
                       )}
                     </div>
@@ -200,14 +253,14 @@ export default function AdminUsers() {
         </div>
 
         {/* Confirm delete dialog */}
-        {confirmDeleteId && (
+        {confirmDelete && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
             <div className="bg-background rounded-md p-6 max-w-md w-full">
               <h3 className="text-lg font-medium mb-3">Confirm delete</h3>
               <p className="text-sm text-muted-foreground mb-4">Are you sure you want to permanently delete this user? This action cannot be undone.</p>
               <div className="flex justify-end gap-2">
-                <Button variant="ghost" onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
-                <Button variant="destructive" onClick={() => deleteUser(confirmDeleteId)}>Delete</Button>
+                <Button variant="ghost" onClick={() => setConfirmDelete(null)}>Cancel</Button>
+                <Button variant="destructive" onClick={() => deleteUser(confirmDelete.id, confirmDelete.user_type)}>Delete</Button>
               </div>
             </div>
           </div>
@@ -240,6 +293,18 @@ export default function AdminUsers() {
                     <div>
                       <Label>Confirm Password</Label>
                       <Input type="password" value={form.confirm_password} onChange={(e) => setForm(prev => ({ ...prev, confirm_password: e.target.value }))} />
+                    </div>
+                    <div>
+                      <Label>User Type</Label>
+                      <Select value={form.user_type} onValueChange={(v) => setForm(prev => ({ ...prev, user_type: v as 'user' | 'expert' }))}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select user type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="user">User</SelectItem>
+                          <SelectItem value="expert">Expert</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </>
                 )}

@@ -48,7 +48,7 @@ export class Users {
   @Column({ default: false })
   is_verified: boolean;
 
-  @Column({ default: true })
+  @Column({ default: false })
   is_active: boolean;
 
   @Column({
