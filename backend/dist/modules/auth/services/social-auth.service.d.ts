@@ -5,5 +5,5 @@ export declare class SocialAuthService {
     private readonly usersRepository;
     private readonly expertService;
     constructor(usersRepository: UsersRepository, expertService: ExpertService);
-    authenticate(profile: CreateSocialUserDto): Promise<import("../../users/entities/users.entity").Users | import("../../expert/entities/expert.entity").Experts>;
+    authenticate(profile: CreateSocialUserDto): Promise<import("../../expert/entities/expert.entity").Experts | import("../../users/entities/users.entity").Users>;
 }

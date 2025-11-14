@@ -23,7 +23,7 @@ import { CreateFeedbackDto } from './dtos/create-feedback.dto';
 export class FeedbacksController {
   constructor(private readonly feedbacksService: FeedbacksService) {}
 
-  @Post(':scanId')
+  @Post('scan/:scanId')
   @UseGuards(JwtAuthGuard)
   async addFeedback(
     @Param('scanId', new ParseUUIDPipe()) scanId: string,
@@ -36,7 +36,29 @@ export class FeedbacksController {
     const response = ResponseHelper.created(
       feedback,
       'Feedback created successfully',
-      `/feedbacks/${scanId}`,
+      `/feedbacks/scan/${scanId}`,
+      'POST',
+    );
+    return res.status(response.statusCode).json(response);
+  }
+
+  @Post('report/:reportId')
+  @UseGuards(JwtAuthGuard)
+  async addReportFeedback(
+    @Param('reportId', new ParseUUIDPipe()) reportId: string,
+    @Body() body: CreateFeedbackDto,
+    @GetUser() user: Experts,
+    @Res() res: Response,
+  ) {
+    const expertPayload = user;
+    // debug: log incoming user shape to help diagnose legacy numeric IDs
+    // eslint-disable-next-line no-console
+    console.log('[DEBUG] FeedbacksController.addReportFeedback - user:', typeof user, user);
+    const feedback = await this.feedbacksService.createFeedbackForReport(expertPayload, reportId, body);
+    const response = ResponseHelper.created(
+      feedback,
+      'Report feedback created successfully',
+      `/feedbacks/report/${reportId}`,
       'POST',
     );
     return res.status(response.statusCode).json(response);
@@ -55,7 +77,22 @@ export class FeedbacksController {
     return res.status(response.statusCode).json(response);
   }
 
-  @Put(':id')
+  @Get('report/:reportId')
+  async getByReport(
+    @Param('reportId', new ParseUUIDPipe()) reportId: string,
+    @Res() res: Response,
+  ) {
+    const items = await this.feedbacksService.findByReport(reportId);
+    const response = ResponseHelper.success(
+      items,
+      'Report feedbacks retrieved successfully',
+      HttpStatus.OK,
+      `/feedbacks/report/${reportId}`,
+      'GET',
+    );
+    return res.status(response.statusCode).json(response);
+  }
+
   @Put(':id')
   @UseGuards(JwtAuthGuard)
   async updateFeedback(

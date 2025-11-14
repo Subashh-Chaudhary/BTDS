@@ -5,11 +5,16 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  Index,
 } from 'typeorm';
 import { Scan } from '../../scans/entities/scan.entity';
 import { Experts } from '../../expert/entities/expert.entity';
+import { Reports } from '../../reports/entities/report.entity';
 
-@Entity()
+@Entity('feedbacks')
+@Index(['scan_id'])
+@Index(['report_id'])
+@Index(['expert_id'])
 export class Feedback {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -27,6 +32,13 @@ export class Feedback {
 
   @Column()
   expert_id: string;
+
+  @ManyToOne(() => Reports, { onDelete: 'CASCADE', nullable: true })
+  @JoinColumn({ name: 'report_id' })
+  report?: Reports | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  report_id?: string | null;
 
   @Column({ type: 'text' })
   feedback_text: string;

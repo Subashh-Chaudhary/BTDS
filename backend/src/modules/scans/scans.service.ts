@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import { CloudinaryService } from '../../common/services/cloudinary.service';
 import { ScansMlService } from './scans-ml.service';
 import { Scan } from './entities/scan.entity';
+import { ReportsService } from '../reports/reports.service';
+import { HistoriesService } from '../histories/histories.service';
 
 @Injectable()
 export class ScansService {
@@ -12,6 +14,8 @@ export class ScansService {
     private scansRepository: Repository<Scan>,
     private readonly cloudinaryService: CloudinaryService,
     private readonly scansMlService: ScansMlService,
+    private readonly reportsService: ReportsService,
+    private readonly historiesService: HistoriesService,
   ) {}
 
   async uploadMriScan(userId: string, file: Express.Multer.File) {
@@ -34,7 +38,23 @@ export class ScansService {
     savedScan.model_prediction_id = prediction.id;
 
     // Save scan with prediction
-    return this.scansRepository.save(savedScan);
+    const updatedScan = await this.scansRepository.save(savedScan);
+
+    // Create a report for this prediction to make it queryable in Reports
+    const report = await this.reportsService.createReport({
+      user_id: userId,
+      scan: updatedScan,
+      prediction,
+    });
+
+    // Record an initial history entry for the generated report
+    await this.historiesService.recordView({
+      user_id: userId,
+      report_id: report.id,
+      viewed_at: new Date(),
+    });
+
+    return updatedScan;
   }
 
   async findAll() {

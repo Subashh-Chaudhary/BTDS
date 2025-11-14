@@ -54,13 +54,7 @@ export class HistoriesService {
 
     const [items, total] = await this.repo.findAndCount({
       where,
-      relations: [
-        'user',
-        'report',
-        'report.crop',
-        'report.disease',
-        'report.solution',
-      ],
+      relations: ['user', 'report', 'report.user', 'report.scan', 'report.prediction', 'report.treatment'],
       order: { viewed_at: 'DESC' },
       skip,
       take: limit,
@@ -71,13 +65,7 @@ export class HistoriesService {
   async findById(id: string): Promise<Histories> {
     const item = await this.repo.findOne({
       where: { id },
-      relations: [
-        'user',
-        'report',
-        'report.crop',
-        'report.disease',
-        'report.solution',
-      ],
+      relations: ['user', 'report', 'report.user', 'report.scan', 'report.prediction', 'report.treatment'],
     });
     if (!item) throw new NotFoundException('History not found');
     return item;
