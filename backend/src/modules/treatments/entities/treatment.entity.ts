@@ -9,7 +9,7 @@ import {
 } from 'typeorm';
 import { Prediction } from '../../predictions/entities/prediction.entity';
 
-@Entity()
+@Entity('treatments')
 export class Treatment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
