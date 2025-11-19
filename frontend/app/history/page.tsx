@@ -379,13 +379,6 @@ export default function HistoryPage() {
               <p className="text-gray-600 mb-6 max-w-md mx-auto">
                 Your medical history will appear here once you start getting predictions and viewing reports.
               </p>
-              <Button
-                onClick={() => window.location.href = '/predictions'}
-                className="bg-linear-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl"
-              >
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Start Exploring
-              </Button>
             </CardContent>
           </Card>
         )}
