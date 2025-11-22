@@ -31,6 +31,10 @@ httpClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    // Debug: log whether Authorization header is present (do not log the token value)
+    try {
+      console.debug('httpClient.request', { url: config.url, hasAuthorization: !!config.headers?.Authorization })
+    } catch (e) {}
     
     return config;
   },

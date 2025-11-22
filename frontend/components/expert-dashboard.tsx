@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { toast } from '@/hooks/use-toast'
 import { httpClient } from '@/lib/http-client'
 import { createReportFeedback } from '@/lib/api/feedbacks'
+import { updateReport } from '@/lib/api/reports'
 import { X as XIcon } from 'lucide-react'
 import AdminDashboard from './admin-users'
 import { useAuthStore } from '@/lib/store/auth.store'
@@ -22,6 +23,7 @@ type ScanItem = {
 
 export default function ExpertDashboard() {
   const currentUser = useAuthStore((s) => s.user)
+  const initializeAuth = useAuthStore((s) => s.initializeAuth)
   const isAdmin = !!currentUser?.is_admin
   const [scans, setScans] = useState<ScanItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -32,12 +34,29 @@ export default function ExpertDashboard() {
   const loadScans = async () => {
     setLoading(true)
     try {
-      const res = await httpClient.get('/scans')
-      const data = res?.data?.data ?? res?.data
+      // For experts we prefer the `/histories` endpoint which contains report objects
+      // so that actions like verify/feedback reflect immediately.
+      let res
+      try {
+        res = await httpClient.get('/histories')
+        const payload = res?.data?.data ?? res?.data
+        // payload may be an object with items/pagination or an array
+        const items = Array.isArray(payload) ? payload : (Array.isArray(payload?.items) ? payload.items : null)
+        if (items) {
+          setScans(items as any)
+          return
+        }
+        // if payload itself looks like an item array, set it
+      } catch (e) {
+        // ignore and fallback to /scans
+      }
+
+      const res2 = await httpClient.get('/scans')
+      const data = res2?.data?.data ?? res2?.data
       if (Array.isArray(data)) {
         setScans(data)
-      } else if (Array.isArray(res?.data)) {
-        setScans(res.data)
+      } else if (Array.isArray(res2?.data)) {
+        setScans(res2.data)
       } else {
         setScans([])
       }
@@ -46,6 +65,68 @@ export default function ExpertDashboard() {
       toast({ title: 'Load failed', description: 'Could not fetch histories', duration: 4000 })
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Reusable recursive helpers to find report id/object inside various payload shapes
+  const findReportIdRecursive = (obj: any): string | null => {
+    if (!obj || typeof obj !== 'object') return null
+    if (typeof obj.report_id === 'string' && obj.report_id) return obj.report_id
+    if (typeof obj.reportId === 'string' && obj.reportId) return obj.reportId
+    if (obj.report && typeof obj.report === 'object' && (typeof obj.report.id === 'string')) return obj.report.id
+    for (const k of Object.keys(obj)) {
+      try {
+        const v = (obj as any)[k]
+        if (v && typeof v === 'object') {
+          const found = findReportIdRecursive(v)
+          if (found) return found
+        }
+      } catch (e) {}
+    }
+    return null
+  }
+
+  const findReportObjectRecursive = (obj: any): any | null => {
+    if (!obj || typeof obj !== 'object') return null
+    if (obj.report && typeof obj.report === 'object') return obj.report
+    for (const k of Object.keys(obj)) {
+      try {
+        const v = (obj as any)[k]
+        if (v && typeof v === 'object') {
+          const found = findReportObjectRecursive(v)
+          if (found) return found
+        }
+      } catch (e) {}
+    }
+    return null
+  }
+
+  // Helper to run an async API action and on 401/403 attempt re-initializing auth once and retry.
+  const requestWithAuthRetry = async (action: () => Promise<any>) => {
+    try {
+      // Log the token being used for debugging (do not expose full token in production)
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+      console.debug('[expert-dashboard] requestWithAuthRetry: token present?', !!token)
+      return await action()
+    } catch (err: any) {
+      const status = err?.response?.status
+      if (status === 401 || status === 403) {
+        console.warn('[expert-dashboard] request failed with 401/403, reinitializing auth and retrying')
+        try {
+          await initializeAuth()
+        } catch (initErr) {
+          console.warn('[expert-dashboard] initializeAuth failed during retry', initErr)
+        }
+        // retry once
+        try {
+          const tokenAfter = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+          console.debug('[expert-dashboard] retrying action, token present?', !!tokenAfter)
+          return await action()
+        } catch (retryErr) {
+          throw retryErr
+        }
+      }
+      throw err
     }
   }
 
@@ -65,32 +146,11 @@ export default function ExpertDashboard() {
       toast({ title: 'Empty feedback', description: 'Please enter feedback before submitting', duration: 2000 })
       return
     }
+
     // Try to find the scan item to see if a report id exists
     const scanItem = scans.find((s) => s.id === id) as any
 
-    // recursive search for report id in an object
-    const findReportId = (obj: any): string | null => {
-      if (!obj || typeof obj !== 'object') return null
-      // common keys
-      if (typeof obj.report_id === 'string' && obj.report_id) return obj.report_id
-      if (typeof obj.reportId === 'string' && obj.reportId) return obj.reportId
-      if (obj.report && typeof obj.report === 'object' && (typeof obj.report.id === 'string')) return obj.report.id
-      // shallow search
-      for (const k of Object.keys(obj)) {
-        try {
-          const v = (obj as any)[k]
-          if (v && typeof v === 'object') {
-            const found = findReportId(v)
-            if (found) return found
-          }
-        } catch (e) {
-          // ignore
-        }
-      }
-      return null
-    }
-
-    let reportId = findReportId(scanItem)
+    let reportId = findReportIdRecursive(scanItem)
 
     try {
       // If not found in the list, fetch the scan details from the API and search there
@@ -98,7 +158,7 @@ export default function ExpertDashboard() {
         try {
           const single = await httpClient.get(`/scans/${id}`)
           const singleData = single?.data?.data ?? single?.data
-          reportId = findReportId(singleData)
+          reportId = findReportIdRecursive(singleData)
         } catch (fetchErr) {
           // ignore fetch error here; we'll fallback to legacy endpoint
           console.warn('Could not fetch single scan to find report id', fetchErr)
@@ -113,7 +173,7 @@ export default function ExpertDashboard() {
           const items = Array.isArray(histData) ? histData : (histData?.items ?? [])
           if (items && items.length > 0) {
             const first = items[0]
-            const found = findReportId(first)
+            const found = findReportIdRecursive(first)
             if (found) reportId = found
             else if (first.report && first.report.id) reportId = first.report.id
           }
@@ -123,11 +183,17 @@ export default function ExpertDashboard() {
       }
 
       if (reportId) {
-        await createReportFeedback(reportId, text)
-        toast({ title: 'Feedback saved', description: 'Report feedback created successfully', duration: 3000 })
+        const resp = await requestWithAuthRetry(() => createReportFeedback(reportId!, text))
+        console.debug('[expert-dashboard] createReportFeedback response', resp)
+        if (resp?.success || resp?.statusCode === 201 || resp?.data) {
+          toast({ title: 'Feedback saved', description: 'Report feedback created successfully', duration: 3000 })
+        } else {
+          toast({ title: 'Submit failed', description: 'Server did not confirm feedback creation', duration: 4000 })
+        }
       } else {
-        // Fallback to legacy scan feedback endpoint
-        await httpClient.post(`/scans/${id}/feedback`, { feedback: text })
+        // Fallback to legacy scan feedback endpoint (with auth-retry)
+        const resp2 = await requestWithAuthRetry(() => httpClient.post(`/scans/${id}/feedback`, { feedback: text }))
+        console.debug('[expert-dashboard] fallback feedback response', resp2)
         toast({ title: 'Feedback saved', description: 'Your feedback was submitted', duration: 3000 })
       }
 
@@ -142,13 +208,68 @@ export default function ExpertDashboard() {
   }
 
   const verifyPrediction = async (id: string) => {
+    // Try to find a report id for this scan and prefer PUT /reports/:id
+    const scanItem = scans.find((s) => s.id === id) as any
+    let reportId = findReportIdRecursive(scanItem)
+
     try {
-      await httpClient.post(`/scans/${id}/verify`, { verified: true })
-      toast({ title: 'Verified', description: 'Prediction marked as verified', duration: 3000 })
+      if (!reportId) {
+        try {
+          const single = await httpClient.get(`/scans/${id}`)
+          const singleData = single?.data?.data ?? single?.data
+          reportId = findReportIdRecursive(singleData)
+        } catch (e) {
+          console.warn('Could not fetch scan to find report id for verify', e)
+        }
+      }
+
+      if (!reportId) {
+        try {
+          const hist = await httpClient.get(`/histories/?scan_id=${id}&limit=1`)
+          const histData = hist?.data?.data ?? hist?.data
+          const items = Array.isArray(histData) ? histData : (histData?.items ?? [])
+          if (items && items.length > 0) {
+            const first = items[0]
+            const found = findReportIdRecursive(first)
+            if (found) reportId = found
+            else if (first.report && first.report.id) reportId = first.report.id
+          }
+        } catch (hErr) {
+          console.warn('Could not fetch histories to find report id for verify', hErr)
+        }
+      }
+
+      if (reportId) {
+        const resp = await requestWithAuthRetry(() => updateReport(reportId!, { is_verified: true }))
+        console.debug('[expert-dashboard] updateReport response', resp)
+        if (resp?.success || resp?.statusCode === 200 || resp?.data) {
+          toast({ title: 'Verified', description: 'Report verified successfully', duration: 3000 })
+        } else {
+          console.warn('[expert-dashboard] updateReport returned unexpected response', resp)
+          toast({ title: 'Verify failed', description: 'Server did not confirm verification', duration: 4000 })
+        }
+      } else {
+        // Fallback to older endpoint if available (with retry)
+        const resp2 = await requestWithAuthRetry(() => httpClient.post(`/scans/${id}/verify`, { verified: true }))
+        console.debug('[expert-dashboard] fallback verify response', resp2)
+        toast({ title: 'Verified', description: 'Prediction marked as verified', duration: 3000 })
+      }
+
       loadScans()
     } catch (err: any) {
       console.error('Failed to verify prediction', err)
-      toast({ title: 'Verify failed', description: err?.response?.data?.message || 'Could not verify prediction', duration: 4000 })
+      const status = err?.response?.status
+      if (status === 401 || status === 403) {
+        // Try to refresh auth state in case token expired or role changed
+        try {
+          await initializeAuth()
+        } catch (e) {
+          console.warn('initializeAuth failed during verify error handling', e)
+        }
+        toast({ title: 'Verify failed', description: 'Unauthorized — please login with an expert account', duration: 6000 })
+      } else {
+        toast({ title: 'Verify failed', description: err?.response?.data?.message || err?.message || 'Could not verify prediction', duration: 4000 })
+      }
     }
   }
 
@@ -191,18 +312,22 @@ export default function ExpertDashboard() {
 
         <div className="space-y-4">
           {scans.map((s) => {
-            const scanResult = (s as any).result ?? (s as any).data ?? null
-            const prediction = scanResult?.model_prediction ?? scanResult ?? (s as any).model_prediction ?? null
-            const imageSrc = prediction?.output_image_url ?? scanResult?.image_url ?? (s as any).image_url ?? null
+            // s may be a plain scan object or a history item containing report/prediction
+            const historyReport = (s as any).report ?? null
+            const scanObj = historyReport?.scan ?? (s as any)
+            const prediction = historyReport?.prediction ?? (s as any).result?.model_prediction ?? (s as any).model_prediction ?? (s as any).prediction ?? null
+            const imageSrc = prediction?.output_image_url ?? scanObj?.image_url ?? (s as any).image_url ?? null
+            const filename = scanObj?.filename ?? scanObj?.id
+            const uploadedAt = scanObj?.uploaded_at ?? scanObj?.uploadedAt ?? (s as any).uploaded_at
 
             return (
-              <Card key={s.id} className="p-4">
+              <Card key={scanObj?.id ?? (s as any).id} className="p-4">
                 <div className="flex flex-col md:flex-row gap-4">
                   <div className="w-full md:w-48 shrink-0">
                     {imageSrc ? (
                       <img
                         src={imageSrc}
-                        alt={s.filename ?? `Scan ${s.id}`}
+                        alt={filename ?? `Scan ${(scanObj?.id ?? (s as any).id)}`}
                         className="w-full h-auto rounded-md object-cover border cursor-zoom-in"
                         onClick={() => openPreview(imageSrc)}
                       />
@@ -214,11 +339,20 @@ export default function ExpertDashboard() {
                   <div className="flex-1">
                     <div className="flex items-start justify-between">
                       <div>
-                        <div className="font-medium">{s.filename ?? `Scan ${s.id}`}</div>
-                        <div className="text-xs text-muted-foreground">Uploaded: {s.uploaded_at ? new Date(s.uploaded_at).toLocaleString() : '—'}</div>
+                        <div className="font-medium">{filename ?? `Scan ${(scanObj?.id ?? (s as any).id)}`}</div>
+                        <div className="text-xs text-muted-foreground">Uploaded: {uploadedAt ? new Date(uploadedAt).toLocaleString() : '—'}</div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button size="sm" variant="outline" onClick={() => verifyPrediction(s.id)}>Verify</Button>
+                        {(() => {
+                          // determine if the report is already verified
+                          const scanReport = findReportObjectRecursive(s as any) ?? findReportObjectRecursive((s as any).result ?? null)
+                          const isVerified = !!(scanReport && scanReport.is_verified)
+                          return isVerified ? (
+                            <span className="inline-flex items-center px-3 py-1 rounded-full bg-green-50 text-green-700 text-sm font-medium">Verified</span>
+                          ) : (
+                            <Button size="sm" variant="outline" onClick={() => verifyPrediction(s.id)}>Verify</Button>
+                          )
+                        })()}
                       </div>
                     </div>
 
