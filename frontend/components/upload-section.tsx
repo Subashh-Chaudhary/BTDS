@@ -1,42 +1,39 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState } from "react"
-import { motion } from "framer-motion"
-import { Upload, FileIcon, AlertCircle, X as XIcon } from "lucide-react"
-import { useAuthStore } from "@/lib/store/auth.store"
-import { useToast } from "@/hooks/use-toast"
-import { httpClient } from '@/lib/http-client'
+import type React from "react";
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { AlertCircle } from "lucide-react";
+import { useAuthStore } from "@/lib/store/auth.store";
+import { useToast } from "@/hooks/use-toast";
+import { httpClient } from "@/lib/http-client";
 
 export default function UploadSection() {
-  const [isDragging, setIsDragging] = useState(false)
-  const [file, setFile] = useState<File | null>(null)
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [result, setResult] = useState<any | null>(null)
-  const [previewOpen, setPreviewOpen] = useState(false)
-  const [previewSrc, setPreviewSrc] = useState<string | null>(null)
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
-  const user = useAuthStore((s) => s.user)
-  const initialized = useAuthStore((s) => s.initialized)
-  const initializeAuth = useAuthStore((s) => s.initializeAuth)
-  const { toast } = useToast()
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [result, setResult] = useState<any | null>(null);
+  // form fields
+  const [pregnancies, setPregnancies] = useState<number | "">("");
+  const [glucose, setGlucose] = useState<number | "">("");
+  const [bloodPressure, setBloodPressure] = useState<number | "">("");
+  const [skinThickness, setSkinThickness] = useState<number | "">("");
+  const [insulin, setInsulin] = useState<number | "">("");
+  const [bmi, setBmi] = useState<number | "">("");
+  const [dpf, setDpf] = useState<number | "">("");
+  const [age, setAge] = useState<number | "">("");
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const user = useAuthStore((s) => s.user);
+  const initialized = useAuthStore((s) => s.initialized);
+  const initializeAuth = useAuthStore((s) => s.initializeAuth);
+  const { toast } = useToast();
 
-  // Hide upload/analyze section for expert users and admins per requirements
+  // Hide prediction section for expert users and admins per requirements
   // `user_type` isn't on the typed AuthResponse, but normalizeUser adds it.
   // Fallback to role so we don't rely on widened types here.
-  const isExpert = (user as any)?.user_type === 'expert' || user?.role === 'expert'
-  const isAdmin = !!user?.is_admin
+  const isExpert =
+    (user as any)?.user_type === "expert" || user?.role === "expert";
+  const isAdmin = !!user?.is_admin;
   if (isExpert || isAdmin) {
-    return null // Experts and admins should not see the upload UI
-  }
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(true)
-  }
-
-  const handleDragLeave = () => {
-    setIsDragging(false)
+    return null; // Experts and admins should not see the upload UI
   }
 
   const showAuthToast = () => {
@@ -44,164 +41,112 @@ export default function UploadSection() {
       title: "Authentication Required",
       description: "Please login first to upload and analyze scans.",
       duration: 3000,
-    })
-  }
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(false)
-    if (!isAuthenticated) {
-      showAuthToast()
-      return
-    }
-    const droppedFile = e.dataTransfer.files[0]
-    if (droppedFile) {
-      setFile(droppedFile)
-    }
-  }
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!isAuthenticated) {
-      showAuthToast()
-      return
-    }
-    const selectedFile = e.target.files?.[0]
-    if (selectedFile) {
-      setFile(selectedFile)
-    }
-  }
-
+    });
+  };
   const handleAnalyze = async () => {
     if (!isAuthenticated) {
-      showAuthToast()
-      return
+      showAuthToast();
+      return;
     }
-    // If auth initialization is still in progress (e.g. page just loaded),
-    // wait for it to complete before proceeding. This prevents a transient
-    // state where `isAuthenticated` is true but `user` is not yet populated.
+
     if (!initialized) {
-      toast({ title: 'Authenticating', description: 'Checking session, please wait...', duration: 3000 })
+      toast({
+        title: "Authenticating",
+        description: "Checking session, please wait...",
+        duration: 3000,
+      });
       try {
-        await initializeAuth()
+        await initializeAuth();
       } catch (e) {
-        // initialization may fail and clear token — fall through to error handling below
-        console.warn('initializeAuth() failed during upload flow', e)
+        console.warn("initializeAuth() failed during prediction flow", e);
       }
     }
-    if (!file) return
-    // Read latest user from store in case the hook value is stale during hydration
-    const currentUser = useAuthStore.getState().user
+
+    const currentUser = useAuthStore.getState().user;
     if (!currentUser || !currentUser.id) {
       toast({
-        title: 'Upload failed',
-        description: 'Could not determine logged in user. Please login again.',
+        title: "Prediction failed",
+        description: "Could not determine logged in user. Please login again.",
         duration: 4000,
-      })
-      return
+      });
+      return;
     }
 
-    setIsAnalyzing(true)
-    setResult(null)
-    try {
-      const form = new FormData()
-  form.append('user_id', currentUser.id)
-      form.append('file', file)
-
-      // Use axios httpClient so the Authorization header from interceptors is applied
-      // Debug: dump FormData keys to console to verify file is attached
-      try {
-        for (const pair of form.entries()) {
-          // pair is [key, value]
-          if (pair[1] instanceof File) {
-            console.log('FormData entry:', pair[0], (pair[1] as File).name, (pair[1] as File).size)
-          } else {
-            console.log('FormData entry:', pair[0], pair[1])
-          }
-        }
-      } catch (e) {
-        console.warn('Failed to enumerate FormData', e)
-      }
-
-      // The axios instance has a default Content-Type of application/json which
-      // would cause the request to be sent incorrectly. Passing `undefined`
-      // tells axios to let the browser set the proper multipart boundary header.
-      const res = await httpClient.post('/scans/upload', form, {
-        headers: {
-          'Content-Type': undefined as unknown as string,
-        },
-      })
-
-      // Response shape may be { success, statusCode, message, data: { ... } }
-      const body = res?.data
-      const payload = body?.data ?? body
-
-      console.log('Upload API response', { status: res?.status, body, payload })
-
-      // If server indicates failure, show message
-      const successFlag = body?.success ?? (res?.status >= 200 && res?.status < 300)
-      if (!successFlag) {
-        console.error('Upload error', { status: res?.status, body })
+    // Basic validation
+    const fields = {
+      pregnancies,
+      glucose,
+      bloodPressure,
+      skinThickness,
+      insulin,
+      bmi,
+      dpf,
+      age,
+    };
+    for (const [k, v] of Object.entries(fields)) {
+      if (
+        v === "" ||
+        v === null ||
+        v === undefined ||
+        Number.isNaN(Number(v))
+      ) {
         toast({
-          title: 'Upload failed',
-          description: body?.message || 'Failed to upload scan. Try again later.',
-          duration: 5000,
-        })
-        return
+          title: "Missing data",
+          description: `Please provide a valid value for ${k}.`,
+          duration: 3000,
+        });
+        return;
       }
-
-      // inner data object contains the uploaded scan and prediction
-      const resultData = body?.data ?? payload
-      setResult(resultData)
-      toast({
-        title: 'Upload successful',
-        description: body?.message || 'MRI scan uploaded successfully',
-        duration: 4000,
-      })
-    } catch (err: any) {
-      // More robust logging for axios / network errors
-      try {
-        console.error('Upload exception (raw):', err)
-        const names = Object.getOwnPropertyNames(err)
-        const props = names.reduce<any>((acc, k) => {
-          try {
-            acc[k] = err[k]
-          } catch (e) {
-            acc[k] = '<unserializable>'
-          }
-          return acc
-        }, {})
-        console.error('Upload exception (props):', props)
-      } catch (logErr) {
-        console.error('Failed to serialize upload error', logErr)
-      }
-
-      // Decide user-facing message based on error shape
-      const serverMessage = err?.response?.data?.message || err?.message
-      const isNetworkError = !!err?.request && !err?.response
-
-      toast({
-        title: 'Upload failed',
-        description: isNetworkError
-          ? 'Network error or CORS issue. Check API server availability and CORS settings.'
-          : serverMessage || 'An unexpected error occurred while uploading.',
-        duration: 7000,
-      })
-    } finally {
-      setIsAnalyzing(false)
     }
-  }
 
-  const openPreview = (src?: string | null) => {
-    if (!src) return
-    setPreviewSrc(src)
-    setPreviewOpen(true)
-  }
+    setIsAnalyzing(true);
+    setResult(null);
+    try {
+      const payload = {
+        user_id: currentUser.id,
+        pregnancies: Number(pregnancies),
+        glucose: Number(glucose),
+        blood_pressure: Number(bloodPressure),
+        skin_thickness: Number(skinThickness),
+        insulin: Number(insulin),
+        bmi: Number(bmi),
+        diabetes_pedigree_function: Number(dpf),
+        age: Number(age),
+      };
 
-  const closePreview = () => {
-    setPreviewOpen(false)
-    // small delay to clear src after animation if desired
-    setTimeout(() => setPreviewSrc(null), 200)
-  }
+      const res = await httpClient.post("/diabetes/predict", payload);
+      const body = res?.data;
+      const payloadData = body?.data ?? body;
+
+      const successFlag =
+        body?.success ?? (res?.status >= 200 && res?.status < 300);
+      if (!successFlag) {
+        toast({
+          title: "Prediction failed",
+          description: body?.message || "Prediction API failed",
+          duration: 5000,
+        });
+        return;
+      }
+
+      setResult(payloadData);
+      toast({
+        title: "Prediction complete",
+        description: body?.message || "Diabetes prediction returned",
+        duration: 3000,
+      });
+    } catch (err: any) {
+      console.error("Prediction error", err);
+      const serverMessage = err?.response?.data?.message || err?.message;
+      toast({
+        title: "Prediction failed",
+        description: serverMessage || "An unexpected error occurred",
+        duration: 7000,
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   return (
     <section id="upload" className="py-20 px-4 bg-background">
@@ -213,8 +158,12 @@ export default function UploadSection() {
           viewport={{ once: true }}
           className="text-center mb-12"
         >
-          <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">Upload Your Scan</h2>
-          <p className="text-lg text-muted-foreground">Get instant AI-powered analysis of your medical imaging</p>
+          <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
+            Diabetes Risk Checker
+          </h2>
+          <p className="text-lg text-muted-foreground">
+            Enter clinical values to get a diabetes risk prediction
+          </p>
         </motion.div>
 
         <motion.div
@@ -224,146 +173,234 @@ export default function UploadSection() {
           viewport={{ once: true }}
           className="space-y-6"
         >
-          {/* Upload Area */}
-          <div
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            className={`relative p-12 rounded-2xl border-2 border-dashed transition cursor-pointer ${
-              isDragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
-            }`}
+          {/* Diabetes Prediction Form */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleAnalyze();
+            }}
+            className="grid gap-4 md:grid-cols-2"
           >
-            <input
-              type="file"
-              onChange={handleFileSelect}
-              accept="image/*,.dcm"
-              className="absolute inset-0 opacity-0 cursor-pointer"
-            />
-            <div className="text-center">
-              <Upload className="w-12 h-12 text-primary mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-foreground mb-2">Drag and drop your scan here</h3>
-              <p className="text-muted-foreground mb-4">or click to browse (DICOM, PNG, JPG)</p>
-              <p className="text-sm text-muted-foreground">Maximum file size: 50MB</p>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">
+                Number of pregnancies
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={pregnancies}
+                onChange={(e) =>
+                  setPregnancies(
+                    e.target.value === "" ? "" : Number(e.target.value)
+                  )
+                }
+                disabled={isAnalyzing}
+                className="w-full rounded-md border px-3 py-2 bg-background text-foreground"
+              />
             </div>
-          </div>
 
-          {/* File Preview */}
-          {file && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-4 rounded-lg bg-accent/5 border border-border flex items-center justify-between"
-            >
-              <div className="flex items-center gap-3">
-                <FileIcon className="text-primary" size={24} />
-                <div>
-                  <p className="font-medium text-foreground">{file.name}</p>
-                  <p className="text-sm text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                </div>
-              </div>
-              <button onClick={() => setFile(null)} className="text-muted-foreground hover:text-foreground transition">
-                ✕
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">
+                Glucose level
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={0.1}
+                value={glucose}
+                onChange={(e) =>
+                  setGlucose(
+                    e.target.value === "" ? "" : Number(e.target.value)
+                  )
+                }
+                disabled={isAnalyzing}
+                className="w-full rounded-md border px-3 py-2 bg-background text-foreground"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">
+                Blood pressure
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={0.1}
+                value={bloodPressure}
+                onChange={(e) =>
+                  setBloodPressure(
+                    e.target.value === "" ? "" : Number(e.target.value)
+                  )
+                }
+                disabled={isAnalyzing}
+                className="w-full rounded-md border px-3 py-2 bg-background text-foreground"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">
+                Skin thickness
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={0.1}
+                value={skinThickness}
+                onChange={(e) =>
+                  setSkinThickness(
+                    e.target.value === "" ? "" : Number(e.target.value)
+                  )
+                }
+                disabled={isAnalyzing}
+                className="w-full rounded-md border px-3 py-2 bg-background text-foreground"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">
+                Insulin level
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={0.1}
+                value={insulin}
+                onChange={(e) =>
+                  setInsulin(
+                    e.target.value === "" ? "" : Number(e.target.value)
+                  )
+                }
+                disabled={isAnalyzing}
+                className="w-full rounded-md border px-3 py-2 bg-background text-foreground"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">
+                BMI
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={0.1}
+                value={bmi}
+                onChange={(e) =>
+                  setBmi(e.target.value === "" ? "" : Number(e.target.value))
+                }
+                disabled={isAnalyzing}
+                className="w-full rounded-md border px-3 py-2 bg-background text-foreground"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">
+                Diabetes Pedigree Function
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={0.001}
+                value={dpf}
+                onChange={(e) =>
+                  setDpf(e.target.value === "" ? "" : Number(e.target.value))
+                }
+                disabled={isAnalyzing}
+                className="w-full rounded-md border px-3 py-2 bg-background text-foreground"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">
+                Age
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={age}
+                onChange={(e) =>
+                  setAge(e.target.value === "" ? "" : Number(e.target.value))
+                }
+                disabled={isAnalyzing}
+                className="w-full rounded-md border px-3 py-2 bg-background text-foreground"
+              />
+            </div>
+
+            <div className="md:col-span-2 flex items-center justify-between gap-4">
+              <p className="text-sm text-muted-foreground">
+                Provide the values above and press Predict to get a diabetes
+                risk estimate.
+              </p>
+              <button
+                type="submit"
+                disabled={isAnalyzing}
+                className="ml-auto inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2 text-white font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isAnalyzing ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Predicting...
+                  </>
+                ) : (
+                  <>Predict Diabetes</>
+                )}
               </button>
-            </motion.div>
-          )}
+            </div>
+          </form>
 
-          {/* Result Preview */}
+          {/* Result Card */}
           {result && (
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               className="p-4 rounded-lg bg-white/5 border border-border"
             >
-              <h4 className="font-medium text-foreground mb-2">Analysis Result</h4>
-              <div className="flex flex-col md:flex-row gap-4 items-start">
-                <div className="w-full md:w-48">
-                  {/* prefer model output image if present */}
-                  <img
-                    src={result.model_prediction?.output_image_url || result.image_url}
-                    alt="analysis output"
-                    className="w-full h-auto rounded-md object-cover border cursor-zoom-in"
-                    onClick={() => openPreview(result.model_prediction?.output_image_url || result.image_url)}
-                  />
-                </div>
-                <div className="flex-1 text-sm text-muted-foreground">
+              <h4 className="font-medium text-foreground mb-2">
+                Prediction Result
+              </h4>
+              <div className="text-sm text-muted-foreground">
+                <p>
+                  <span className="font-semibold text-foreground">
+                    Prediction:{" "}
+                  </span>
+                  {result?.prediction?.label ??
+                    result?.label ??
+                    (result?.predicted ? String(result.predicted) : "N/A")}
+                </p>
+                {(result?.prediction?.probability ??
+                  result?.probability ??
+                  result?.confidence) != null && (
                   <p>
-                    <span className="font-semibold text-foreground">Tumor type: </span>
-                    {result.model_prediction?.tumor_type ?? 'N/A'}
+                    <span className="font-semibold text-foreground">
+                      Probability:{" "}
+                    </span>
+                    {(
+                      (result?.prediction?.probability ??
+                        result?.probability ??
+                        result?.confidence) * 100
+                    ).toFixed(2)}
+                    %
                   </p>
-                  <p>
-                    <span className="font-semibold text-foreground">Confidence: </span>
-                    {result.model_prediction?.confidence_score
-                      ? (result.model_prediction.confidence_score * 100).toFixed(2) + '%'
-                      : 'N/A'}
-                  </p>
-                  {result.model_prediction?.description && (
-                    <p className="mt-2">
-                      <span className="font-semibold text-foreground">Details: </span>
-                      {result.model_prediction.description}
-                    </p>
-                  )}
-                  <p className="mt-3 text-xs text-muted-foreground">Uploaded at: {new Date(result.uploaded_at).toLocaleString()}</p>
-                </div>
+                )}
+                {result?.details && <p className="mt-2">{result.details}</p>}
               </div>
             </motion.div>
           )}
-
-          {/* Image preview modal */}
-          {previewOpen && previewSrc && (
-            <div
-              role="dialog"
-              aria-modal="true"
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-              onClick={closePreview}
-            >
-              <div
-                className="relative max-w-5xl w-full max-h-[90vh] rounded-md overflow-hidden"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <button
-                  aria-label="Close preview"
-                  onClick={closePreview}
-                  className="absolute right-2 top-2 z-50 p-2 bg-black/50 rounded-full hover:bg-black/40 transition"
-                >
-                  <XIcon className="text-white" />
-                </button>
-                <img src={previewSrc} alt="Preview" className="w-full h-auto max-h-[90vh] object-contain bg-black" />
-              </div>
-            </div>
-          )}
-
           {/* Info Box */}
           <div className="p-4 rounded-lg bg-accent/10 border border-accent/20 flex gap-3">
             <AlertCircle className="text-accent shrink-0 mt-0.5" size={20} />
             <div className="text-sm text-muted-foreground">
               <p className="font-medium text-foreground mb-1">Important:</p>
               <p>
-                This tool is designed to assist medical professionals. Always consult with qualified healthcare
-                providers for diagnosis and treatment decisions.
+                This tool is designed to assist medical professionals. Always
+                consult with qualified healthcare providers for diagnosis and
+                treatment decisions.
               </p>
             </div>
           </div>
-
-          {/* Analyze Button */}
-          <button
-            onClick={handleAnalyze}
-            disabled={!file || isAnalyzing}
-            className="w-full py-3 rounded-full bg-primary text-white font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
-          >
-            {isAnalyzing ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Analyzing...
-              </>
-            ) : (
-              <>
-                <Upload size={20} />
-                Analyze Scan
-              </>
-            )}
-          </button>
         </motion.div>
       </div>
     </section>
-  )
+  );
 }
