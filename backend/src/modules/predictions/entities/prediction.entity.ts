@@ -11,17 +11,38 @@ export class Prediction {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ length: 255 })
-  tumor_type: string;
+  // (model_type removed) - entity now stores diabetes-specific fields directly
 
-  @Column({ type: 'float' })
-  confidence_score: number;
+  // Optional reference to the user who requested prediction
+  @Column({ type: 'uuid', nullable: true })
+  user_id: string | null;
 
-  @Column({ type: 'text', nullable: true })
-  description: string;
+  // (confidence, description and output_image_url removed per request)
 
-  @Column({ length: 512, nullable: true })
-  output_image_url: string;
+  // Diabetes-specific fields (nullable to keep compatibility with other models)
+  @Column({ type: 'integer', nullable: true })
+  pregnancies: number | null;
+
+  @Column({ type: 'integer', nullable: true })
+  glucose: number | null;
+
+  @Column({ type: 'integer', nullable: true })
+  blood_pressure: number | null;
+
+  @Column({ type: 'integer', nullable: true })
+  skin_thickness: number | null;
+
+  @Column({ type: 'integer', nullable: true })
+  insulin: number | null;
+
+  @Column({ type: 'double precision', nullable: true })
+  bmi: number | null;
+
+  @Column({ type: 'double precision', nullable: true })
+  diabetes_pedigree_function: number | null;
+
+  @Column({ type: 'integer', nullable: true })
+  age: number | null;
 
   @CreateDateColumn({
     type: 'timestamp with time zone',
