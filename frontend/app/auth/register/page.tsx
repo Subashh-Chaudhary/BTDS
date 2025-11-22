@@ -6,33 +6,41 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardHeader, CardContent, CardFooter } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Card,
+  CardHeader,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuthStore } from "@/lib/store/auth.store";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+// Note: user_type is no longer supplied by the user on the form.
 
-const registerSchema = z.object({
-  name: z.string().min(3, "Name must be at least 3 characters").max(100, "Name cannot exceed 100 characters"),
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-  confirm_password: z.string(),
-  user_type: z.enum(['user', 'expert'], {
-    required_error: "Please select a user type",
-  }),
-}).refine((data) => data.password === data.confirm_password, {
-  message: "Passwords don't match",
-  path: ["confirm_password"],
-});
+const registerSchema = z
+  .object({
+    name: z
+      .string()
+      .min(3, "Name must be at least 3 characters")
+      .max(100, "Name cannot exceed 100 characters"),
+    email: z.string().email("Invalid email address"),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    confirm_password: z.string(),
+  })
+  .refine((data) => data.password === data.confirm_password, {
+    message: "Passwords don't match",
+    path: ["confirm_password"],
+  });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
@@ -49,7 +57,6 @@ export default function RegisterPage() {
       email: "",
       password: "",
       confirm_password: "",
-      user_type: 'user',
     },
   });
 
@@ -57,12 +64,14 @@ export default function RegisterPage() {
     setIsLoading(true);
     setError("");
     try {
-      await register(values);
+      // Backend expects a `user_type` field; default new signups to 'user'.
+      await register({ ...(values as any), user_type: "user" });
       // after successful registration, redirect to login page
-      router.push('/auth/login');
+      router.push("/auth/login");
     } catch (error: any) {
       console.error("Registration error:", error);
-      const errorMessage = error.response?.data?.message || "Registration failed";
+      const errorMessage =
+        error.response?.data?.message || "Registration failed";
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -157,34 +166,15 @@ export default function RegisterPage() {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="user_type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>User Type</FormLabel>
-                      <Select
-                        value={field.value ?? 'user'}
-                        onValueChange={field.onChange}
-                        disabled={isLoading}
-                      >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select your user type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="user">User</SelectItem>
-                        <SelectItem value="expert">Expert</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Creating account..." : "Register"}
-              </Button>
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  By creating an account you agree to our terms and privacy
+                  policy.
+                </p>
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? "Creating account..." : "Create account"}
+                </Button>
+              </div>
             </form>
           </Form>
           <div className="mt-4">
