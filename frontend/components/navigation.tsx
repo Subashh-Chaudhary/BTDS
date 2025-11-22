@@ -56,14 +56,13 @@ export default function Navigation() {
             <Link href="#how-it-works" className="text-sm text-muted-foreground hover:text-foreground transition">
               How It Works
             </Link>
-            {/* Admins see Users (manage users). Non-admins: show Upload for regular users and Predictions for experts. */}
+            {/* Admins see Dashboard (home page). Non-admins: show Upload for regular users and Predictions for experts. */}
             {isAdmin ? (
               <Link
-                href={mounted && isAuthenticated ? "/predictions" : "#"}
-                onClick={(e) => !(mounted && isAuthenticated) && e.preventDefault()}
-                className={`text-sm ${(mounted && isAuthenticated) ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/50 cursor-not-allowed'} transition`}
+                href="/"
+                className="text-sm text-muted-foreground hover:text-foreground transition"
               >
-                Users
+                Dashboard
               </Link>
             ) : roleOrType === 'user' ? (
               <Link
@@ -152,10 +151,10 @@ export default function Navigation() {
             <Link href="#how-it-works" className="block px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
               How It Works
             </Link>
-            {/* Mobile: admin -> Users, user -> Upload, expert -> Predictions */}
+            {/* Mobile: admin -> Dashboard, user -> Upload, expert -> Predictions */}
             {isAdmin ? (
-              <Link href={isAuthenticated ? "/predictions" : "#"} onClick={(e) => !isAuthenticated && e.preventDefault()} className={`block px-4 py-2 text-sm ${isAuthenticated ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/50 cursor-not-allowed'}`}>
-                Users
+              <Link href="/" className="block px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
+                Dashboard
               </Link>
             ) : roleOrType === 'user' ? (
               <Link href={isAuthenticated ? "#upload" : "#"} onClick={(e) => !isAuthenticated && e.preventDefault()} className={`block px-4 py-2 text-sm ${isAuthenticated ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/50 cursor-not-allowed'}`}>

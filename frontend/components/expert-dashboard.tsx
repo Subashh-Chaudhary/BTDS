@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { toast } from '@/hooks/use-toast'
 import { httpClient } from '@/lib/http-client'
 import { X as XIcon } from 'lucide-react'
-import AdminUsers from './admin-users'
+import AdminDashboard from './admin-users'
 import { useAuthStore } from '@/lib/store/auth.store'
 
 type ScanItem = {
@@ -99,7 +99,15 @@ export default function ExpertDashboard() {
   }
 
   if (isAdmin) {
-    return <AdminUsers />
+    // Admins now see dashboard on home page, redirect or show message
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">Access Restricted</h2>
+          <p className="text-muted-foreground">Please visit the home page to access the admin dashboard.</p>
+        </div>
+      </div>
+    )
   }
 
   return (
