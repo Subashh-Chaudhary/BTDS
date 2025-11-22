@@ -118,9 +118,11 @@ export default function Navigation() {
                   <Link href="/profile">
                     <DropdownMenuItem>Profile</DropdownMenuItem>
                   </Link>
-                  <Link href="/history">
-                    <DropdownMenuItem>Histories</DropdownMenuItem>
-                  </Link>
+                  {roleOrType !== 'expert' && (
+                    <Link href="/history">
+                      <DropdownMenuItem>Histories</DropdownMenuItem>
+                    </Link>
+                  )}
                   <DropdownMenuSeparator />
                   <Link href="/profile/delete">
                     <DropdownMenuItem className="text-destructive" data-variant="destructive">Delete Account</DropdownMenuItem>
@@ -179,10 +181,12 @@ export default function Navigation() {
                   </Link>
                 </>
               ) : (
-                <>
+                  <>
                   <Link href="/profile" className="block px-4 py-2 text-sm text-muted-foreground hover:text-foreground">Profile</Link>
                   <Link href="/profile/edit" className="block px-4 py-2 text-sm text-muted-foreground hover:text-foreground">Edit Profile</Link>
-                  <Link href="/history" className="block px-4 py-2 text-sm text-muted-foreground hover:text-foreground">Histories</Link>
+                  {roleOrType !== 'expert' && (
+                    <Link href="/history" className="block px-4 py-2 text-sm text-muted-foreground hover:text-foreground">Histories</Link>
+                  )}
                   <Link href="/profile/delete" className="block px-4 py-2 text-sm text-destructive hover:text-destructive/90">Delete Account</Link>
                   <button onClick={() => { logout(); router.push('/'); }} className="w-full text-left px-4 py-2 text-sm text-muted-foreground hover:text-foreground">Logout</button>
                 </>
