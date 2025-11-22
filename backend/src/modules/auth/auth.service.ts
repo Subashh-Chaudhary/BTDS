@@ -4,25 +4,25 @@ import {
   ConflictException,
   Injectable,
   UnauthorizedException,
-} from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { InjectRepository } from '@nestjs/typeorm';
-import { AuthHelper } from 'src/common/helpers';
+} from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
+import { InjectRepository } from "@nestjs/typeorm";
+import { AuthHelper } from "src/common/helpers";
 import {
   comparePasswords,
   hashPassword,
-} from 'src/common/helpers/password.helper';
-import { IUserData, UserWithPassword } from 'src/common/interfaces';
-import { TokenManagerService } from 'src/common/services/token-manager.service';
-import { Repository } from 'typeorm';
-import { Experts } from '../expert/entities/expert.entity';
-import { ExpertService } from '../expert/expert.service';
-import { ExpertRepository } from '../expert/repositories';
-import { Users } from '../users/entities/users.entity';
-import { UsersRepository } from '../users/repositories/users.repository';
-import { UsersService } from '../users/users.service';
-import { LoginDto } from './dtos/login.dto';
-import { RegisterDto } from './dtos/register.dto';
+} from "src/common/helpers/password.helper";
+import { IUserData, UserWithPassword } from "src/common/interfaces";
+import { TokenManagerService } from "src/common/services/token-manager.service";
+import { Repository } from "typeorm";
+import { Experts } from "../expert/entities/expert.entity";
+import { ExpertService } from "../expert/expert.service";
+import { ExpertRepository } from "../expert/repositories";
+import { Users } from "../users/entities/users.entity";
+import { UsersRepository } from "../users/repositories/users.repository";
+import { UsersService } from "../users/users.service";
+import { LoginDto } from "./dtos/login.dto";
+import { RegisterDto } from "./dtos/register.dto";
 
 /**
  * Auth Service
@@ -40,7 +40,7 @@ export class AuthService {
     @InjectRepository(Experts)
     private expertsRepository: Repository<Experts>,
     private usersRepo: UsersRepository,
-    private expertRepo: ExpertRepository,
+    private expertRepo: ExpertRepository
   ) {}
 
   /**
@@ -52,45 +52,31 @@ export class AuthService {
     user: Record<string, unknown>;
     access_token: string;
   }> {
-    // Check if email already exists in both tables
+    // Check if email already exists in either users or experts table
     const existingUser = await this.usersService.findByEmail(registerDto.email);
     const existingExpert = await this.expertService.findByEmail(
-      registerDto.email,
+      registerDto.email
     );
 
-    if (registerDto.user_type === 'expert') {
-      if (existingExpert) {
-        throw new ConflictException('Expert with this email already exists');
-      }
-    }
-
-    if (registerDto.user_type === 'user') {
-      if (existingUser) {
-        throw new ConflictException('User with this email already exists');
-      }
+    if (existingExpert || existingUser) {
+      throw new ConflictException("User with this email already exists");
     }
 
     if (registerDto.password !== registerDto.confirm_password) {
       throw new BadRequestException(
-        'Password and confirm password do not match',
+        "Password and confirm password do not match"
       );
     }
 
-    let user: Users | Experts;
-
-    // Create user based on user_type
-    if (registerDto.user_type === 'expert') {
-      user = await this.createExpert(registerDto);
-    } else {
-      user = await this.createUser(registerDto);
-    }
+    // Always create a normal user. Experts/admins are seeded or created
+    // through internal/admin flows.
+    const user = await this.createUser(registerDto);
 
     // Generate JWT token for the new user
     const payload = {
       sub: user.id,
       email: user.email,
       name: user.name,
-      user_type: registerDto.user_type,
     };
 
     const access_token = this.jwtService.sign(payload);
@@ -115,7 +101,7 @@ export class AuthService {
   }
 
   /**
-  * Create a new user (user)
+   * Create a new user (user)
    * @param userData - User registration data
    * @returns Created user object
    */
@@ -171,21 +157,21 @@ export class AuthService {
    * @returns Object containing user data and access token
    */
   async login(
-    loginDto: LoginDto,
-  ): Promise<{ user: Record<string, unknown>; access_token: string; user_type: 'user' | 'expert' }> {
+    loginDto: LoginDto
+  ): Promise<{ user: Record<string, unknown>; access_token: string }> {
     // Find user by email in both tables
     const user = await this.findUserByEmail(loginDto.email);
     if (!user) {
-      throw new BadRequestException('Invalid credentials');
+      throw new BadRequestException("Invalid credentials");
     }
 
     // Verify password
     const isPasswordValid = await this.verifyPassword(
       loginDto.password,
-      user.password,
+      user.password
     );
     if (!isPasswordValid) {
-      throw new BadRequestException('Invalid credentials');
+      throw new BadRequestException("Invalid credentials");
     }
 
     // Update last login time for experts
@@ -193,12 +179,11 @@ export class AuthService {
       await this.expertRepo.updateLastLogin(user.id.toString());
     }
 
-    // Generate JWT token (include user_type)
+    // Generate JWT token
     const payload = {
       sub: user.id,
       email: user.email,
       name: user.name,
-      user_type: (user as any).user_type || ((await this.expertService.findByEmail(loginDto.email)) ? 'expert' : 'user'),
     };
 
     const access_token = this.jwtService.sign(payload);
@@ -214,13 +199,9 @@ export class AuthService {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _pwd, ...userWithoutPassword } = fullUser;
 
-    // Determine user_type from earlier detection or from fullUser if available
-    const detectedUserType = (user as any).user_type || (fullUser && fullUser.is_active !== undefined ? 'expert' : 'user');
-
     return {
       user: userWithoutPassword as Record<string, unknown>,
       access_token,
-      user_type: detectedUserType as 'user' | 'expert',
     };
   }
 
@@ -234,21 +215,21 @@ export class AuthService {
     const user = await AuthHelper.findUserByVerificationToken(
       token,
       this.usersRepository,
-      this.expertsRepository,
+      this.expertsRepository
     );
     if (!user) {
-      throw new BadRequestException('Invalid verification token');
+      throw new BadRequestException("Invalid verification token");
     }
 
     // Validate token
     const validation = this.tokenManager.validateToken(
       user.verification_token,
-      user.verification_token_expires_at,
+      user.verification_token_expires_at
     );
 
     if (!validation.isValid) {
       throw new BadRequestException(
-        validation.message || 'Token is invalid or expired',
+        validation.message || "Token is invalid or expired"
       );
     }
 
@@ -256,10 +237,10 @@ export class AuthService {
     await AuthHelper.updateUserVerification(
       user,
       this.usersRepository,
-      this.expertsRepository,
+      this.expertsRepository
     );
 
-    return { message: 'Email verified successfully' };
+    return { message: "Email verified successfully" };
   }
 
   /**
@@ -273,31 +254,32 @@ export class AuthService {
     if (!user) {
       // Don't reveal if user exists
       return {
-        message: 'If the email exists, a password reset link has been sent',
+        message: "If the email exists, a password reset link has been sent",
       };
     }
 
     // Generate password reset token
     const resetToken = this.tokenManager.generatePasswordResetToken();
 
-    // Update user with reset token
-    if (user.user_type === 'expert') {
+    // Determine whether this email belongs to an expert
+    const expert = await this.expertService.findByEmail(email);
+    if (expert) {
       await this.expertRepo.updatePasswordResetToken(
-        user.id.toString(),
+        expert.id.toString(),
         resetToken.token,
-        resetToken.expiresAt,
+        resetToken.expiresAt
       );
     } else {
       await this.usersRepo.updatePasswordResetToken(
         user.id.toString(),
         resetToken.token,
-        resetToken.expiresAt,
+        resetToken.expiresAt
       );
     }
 
     // TODO: Send email with reset link
     return {
-      message: 'If the email exists, a password reset link has been sent',
+      message: "If the email exists, a password reset link has been sent",
     };
   }
 
@@ -309,27 +291,27 @@ export class AuthService {
    */
   async resetPassword(
     token: string,
-    newPassword: string,
+    newPassword: string
   ): Promise<{ message: string }> {
     // Find user by reset token
     const user = await AuthHelper.findUserByResetToken(
       token,
       this.usersRepository,
-      this.expertsRepository,
+      this.expertsRepository
     );
     if (!user) {
-      throw new BadRequestException('Invalid reset token');
+      throw new BadRequestException("Invalid reset token");
     }
 
     // Validate token
     const validation = this.tokenManager.validateToken(
       user.password_reset_token,
-      user.reset_token_expires_at,
+      user.reset_token_expires_at
     );
 
     if (!validation.isValid) {
       throw new BadRequestException(
-        validation.message || 'Token is invalid or expired',
+        validation.message || "Token is invalid or expired"
       );
     }
 
@@ -341,10 +323,10 @@ export class AuthService {
       user,
       hashedPassword,
       this.usersRepository,
-      this.expertsRepository,
+      this.expertsRepository
     );
 
-    return { message: 'Password reset successfully' };
+    return { message: "Password reset successfully" };
   }
 
   /**
@@ -357,21 +339,21 @@ export class AuthService {
     const user = await AuthHelper.findUserByRefreshToken(
       refreshToken,
       this.usersRepository,
-      this.expertsRepository,
+      this.expertsRepository
     );
     if (!user) {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException("Invalid refresh token");
     }
 
     // Validate token
     const validation = this.tokenManager.validateToken(
       user.refresh_token,
-      user.refresh_token_expires_at,
+      user.refresh_token_expires_at
     );
 
     if (!validation.isValid) {
       throw new UnauthorizedException(
-        validation.message || 'Refresh token is invalid or expired',
+        validation.message || "Refresh token is invalid or expired"
       );
     }
 
@@ -393,8 +375,8 @@ export class AuthService {
    * @returns User with password or undefined
    */
   private async findUserByEmail(
-    email: string,
-  ): Promise<UserWithPassword | (UserWithPassword & { user_type: 'user' | 'expert' }) | undefined> {
+    email: string
+  ): Promise<UserWithPassword | undefined> {
     // Check in users table
     const user = await this.usersService.findByEmail(email);
     if (user) {
@@ -403,7 +385,6 @@ export class AuthService {
         email: user.email,
         name: user.name,
         password: user.password,
-        user_type: 'user',
       };
     }
 
@@ -415,7 +396,6 @@ export class AuthService {
         email: expert.email,
         name: expert.name,
         password: expert.password,
-        user_type: 'expert',
       };
     }
 
@@ -466,7 +446,7 @@ export class AuthService {
    */
   private async verifyPassword(
     plainPassword: string,
-    hashedPassword: string,
+    hashedPassword: string
   ): Promise<boolean> {
     return comparePasswords(plainPassword, hashedPassword);
   }

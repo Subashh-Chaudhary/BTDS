@@ -3,5 +3,4 @@ export declare class RegisterDto {
     email: string;
     password: string;
     confirm_password: string;
-    user_type: 'user' | 'expert';
 }

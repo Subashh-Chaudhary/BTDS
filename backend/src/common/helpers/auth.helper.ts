@@ -1,9 +1,9 @@
-import { BadRequestException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { Repository } from 'typeorm';
-import { Experts } from '../../modules/expert/entities/expert.entity';
-import { Users } from '../../modules/users/entities/users.entity';
-import { IUserData } from '../interfaces';
+import { BadRequestException } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
+import { Repository } from "typeorm";
+import { Experts } from "../../modules/expert/entities/expert.entity";
+import { Users } from "../../modules/users/entities/users.entity";
+import { IUserData } from "../interfaces";
 
 /**
  * Auth Helper Service
@@ -15,16 +15,16 @@ export class AuthHelper {
    * @param token - Verification token
    * @param usersRepository - Users repository
    * @param expertsRepository - Experts repository
-   * @returns User with user_type or undefined
+   * @returns User with isExpert flag or undefined
    */
   static async findUserByVerificationToken(
     token: string,
     usersRepository: Repository<Users>,
-    expertsRepository: Repository<Experts>,
+    expertsRepository: Repository<Experts>
   ): Promise<
     | {
         id: string;
-        user_type: string;
+        isExpert: boolean;
         verification_token: string;
         verification_token_expires_at: Date;
       }
@@ -37,7 +37,7 @@ export class AuthHelper {
     if (user) {
       return {
         id: user.id,
-        user_type: 'user',
+        isExpert: false,
         verification_token: user.verification_token,
         verification_token_expires_at: user.verification_token_expires_at,
       };
@@ -50,7 +50,7 @@ export class AuthHelper {
     if (expert) {
       return {
         id: expert.id,
-        user_type: 'expert',
+        isExpert: true,
         verification_token: expert.verification_token,
         verification_token_expires_at: expert.verification_token_expires_at,
       };
@@ -64,16 +64,16 @@ export class AuthHelper {
    * @param token - Reset token
    * @param usersRepository - Users repository
    * @param expertsRepository - Experts repository
-   * @returns User with user_type or undefined
+   * @returns User with isExpert flag or undefined
    */
   static async findUserByResetToken(
     token: string,
     usersRepository: Repository<Users>,
-    expertsRepository: Repository<Experts>,
+    expertsRepository: Repository<Experts>
   ): Promise<
     | {
         id: string;
-        user_type: string;
+        isExpert: boolean;
         password_reset_token: string;
         reset_token_expires_at: Date;
       }
@@ -86,7 +86,7 @@ export class AuthHelper {
     if (user) {
       return {
         id: user.id,
-        user_type: 'user',
+        isExpert: false,
         password_reset_token: user.password_reset_token,
         reset_token_expires_at: user.reset_token_expires_at,
       };
@@ -99,7 +99,7 @@ export class AuthHelper {
     if (expert) {
       return {
         id: expert.id,
-        user_type: 'expert',
+        isExpert: true,
         password_reset_token: expert.password_reset_token,
         reset_token_expires_at: expert.reset_token_expires_at,
       };
@@ -113,16 +113,16 @@ export class AuthHelper {
    * @param token - Refresh token
    * @param usersRepository - Users repository
    * @param expertsRepository - Experts repository
-   * @returns User with user_type or undefined
+   * @returns User with isExpert flag or undefined
    */
   static async findUserByRefreshToken(
     token: string,
     usersRepository: Repository<Users>,
-    expertsRepository: Repository<Experts>,
+    expertsRepository: Repository<Experts>
   ): Promise<
     | {
         id: string;
-        user_type: string;
+        isExpert: boolean;
         refresh_token: string;
         refresh_token_expires_at: Date;
         email: string;
@@ -137,7 +137,7 @@ export class AuthHelper {
     if (user) {
       return {
         id: user.id,
-        user_type: 'user',
+        isExpert: false,
         refresh_token: user.refresh_token,
         refresh_token_expires_at: user.refresh_token_expires_at,
         email: user.email,
@@ -152,7 +152,7 @@ export class AuthHelper {
     if (expert) {
       return {
         id: expert.id,
-        user_type: 'expert',
+        isExpert: true,
         refresh_token: expert.refresh_token,
         refresh_token_expires_at: expert.refresh_token_expires_at,
         email: expert.email,
@@ -189,25 +189,25 @@ export class AuthHelper {
     try {
       return jwtService.verify(token);
     } catch {
-      throw new BadRequestException('Invalid token');
+      throw new BadRequestException("Invalid token");
     }
   }
 
   /**
    * Update user verification status and clear token
-   * @param user - User data with user_type
+   * @param user - User data with isExpert flag
    * @param usersRepository - Users repository
    * @param expertsRepository - Experts repository
    */
   static async updateUserVerification(
     user: {
       id: string;
-      user_type: string;
+      isExpert: boolean;
     },
     usersRepository: Repository<Users>,
-    expertsRepository: Repository<Experts>,
+    expertsRepository: Repository<Experts>
   ): Promise<void> {
-    if (user.user_type === 'expert') {
+    if (user.isExpert) {
       await expertsRepository.update(user.id, {
         is_verified: true,
         verification_token: undefined,
@@ -224,7 +224,7 @@ export class AuthHelper {
 
   /**
    * Update user password reset token
-   * @param user - User data with user_type
+   * @param user - User data with isExpert flag
    * @param resetToken - Password reset token
    * @param expiresAt - Token expiration time
    * @param usersRepository - Users repository
@@ -233,14 +233,14 @@ export class AuthHelper {
   static async updateUserResetToken(
     user: {
       id: string;
-      user_type: string;
+      isExpert: boolean;
     },
     resetToken: string,
     expiresAt: Date,
     usersRepository: Repository<Users>,
-    expertsRepository: Repository<Experts>,
+    expertsRepository: Repository<Experts>
   ): Promise<void> {
-    if (user.user_type === 'expert') {
+    if (user.isExpert) {
       await expertsRepository.update(user.id, {
         password_reset_token: resetToken,
         reset_token_expires_at: expiresAt,
@@ -255,7 +255,7 @@ export class AuthHelper {
 
   /**
    * Update user password and clear reset token
-   * @param user - User data with user_type
+   * @param user - User data with isExpert flag
    * @param hashedPassword - Hashed password
    * @param usersRepository - Users repository
    * @param expertsRepository - Experts repository
@@ -263,13 +263,13 @@ export class AuthHelper {
   static async updateUserPassword(
     user: {
       id: string;
-      user_type: string;
+      isExpert: boolean;
     },
     hashedPassword: string,
     usersRepository: Repository<Users>,
-    expertsRepository: Repository<Experts>,
+    expertsRepository: Repository<Experts>
   ): Promise<void> {
-    if (user.user_type === 'expert') {
+    if (user.isExpert) {
       await expertsRepository.update(user.id, {
         password: hashedPassword,
         password_reset_token: undefined,
@@ -291,7 +291,7 @@ export class AuthHelper {
    */
   static async updateExpertLastLogin(
     expertId: string,
-    expertsRepository: Repository<Experts>,
+    expertsRepository: Repository<Experts>
   ): Promise<void> {
     await expertsRepository.update(expertId, {
       last_login_at: new Date(),

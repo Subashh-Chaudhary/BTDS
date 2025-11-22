@@ -1,15 +1,15 @@
-import { JwtService } from '@nestjs/jwt';
-import { IUserData } from 'src/common/interfaces';
-import { TokenManagerService } from 'src/common/services/token-manager.service';
-import { Repository } from 'typeorm';
-import { Experts } from '../expert/entities/expert.entity';
-import { ExpertService } from '../expert/expert.service';
-import { ExpertRepository } from '../expert/repositories';
-import { Users } from '../users/entities/users.entity';
-import { UsersRepository } from '../users/repositories/users.repository';
-import { UsersService } from '../users/users.service';
-import { LoginDto } from './dtos/login.dto';
-import { RegisterDto } from './dtos/register.dto';
+import { JwtService } from "@nestjs/jwt";
+import { IUserData } from "src/common/interfaces";
+import { TokenManagerService } from "src/common/services/token-manager.service";
+import { Repository } from "typeorm";
+import { Experts } from "../expert/entities/expert.entity";
+import { ExpertService } from "../expert/expert.service";
+import { ExpertRepository } from "../expert/repositories";
+import { Users } from "../users/entities/users.entity";
+import { UsersRepository } from "../users/repositories/users.repository";
+import { UsersService } from "../users/users.service";
+import { LoginDto } from "./dtos/login.dto";
+import { RegisterDto } from "./dtos/register.dto";
 export declare class AuthService {
     private jwtService;
     private usersService;
@@ -29,7 +29,6 @@ export declare class AuthService {
     login(loginDto: LoginDto): Promise<{
         user: Record<string, unknown>;
         access_token: string;
-        user_type: 'user' | 'expert';
     }>;
     verifyEmail(token: string): Promise<{
         message: string;
