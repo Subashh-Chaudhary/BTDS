@@ -7,6 +7,8 @@ import {
   ParseIntPipe,
   Res,
   UseGuards,
+  Put,
+  Body,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { ReportsService } from './reports.service';
@@ -14,6 +16,8 @@ import { ResponseHelper } from '../../common/helpers/response.helper';
 import { GetUser } from '../../common/decorators/get-user.decorator';
 import { Users } from '../users/entities/users.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ParseUUIDPipe } from '@nestjs/common';
+import { HttpStatus } from '@nestjs/common';
 
 @Controller('')
 export class ReportsController {
@@ -77,6 +81,24 @@ export class ReportsController {
       200,
       `/reports/${id}`,
       'GET',
+    );
+    return res.status(response.statusCode).json(response);
+  }
+
+  @Put('reports/:id')
+  @UseGuards(JwtAuthGuard)
+  async update(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: Partial<{ treatment_id?: string | null; feedback_id?: string | null; report_url?: string | null; is_verified?: boolean | null }> ,
+    @Res() res: Response,
+  ) {
+    const updated = await this.reportsService.updateReport(id, body as any);
+    const response = ResponseHelper.success(
+      updated,
+      'Report updated successfully',
+      HttpStatus.OK,
+      `/reports/${id}`,
+      'PUT',
     );
     return res.status(response.statusCode).json(response);
   }

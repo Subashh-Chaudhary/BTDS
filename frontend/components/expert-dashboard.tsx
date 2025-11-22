@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/hooks/use-toast'
 import { httpClient } from '@/lib/http-client'
+import { createReportFeedback } from '@/lib/api/feedbacks'
 import { X as XIcon } from 'lucide-react'
 import AdminDashboard from './admin-users'
 import { useAuthStore } from '@/lib/store/auth.store'
@@ -64,15 +65,79 @@ export default function ExpertDashboard() {
       toast({ title: 'Empty feedback', description: 'Please enter feedback before submitting', duration: 2000 })
       return
     }
+    // Try to find the scan item to see if a report id exists
+    const scanItem = scans.find((s) => s.id === id) as any
+
+    // recursive search for report id in an object
+    const findReportId = (obj: any): string | null => {
+      if (!obj || typeof obj !== 'object') return null
+      // common keys
+      if (typeof obj.report_id === 'string' && obj.report_id) return obj.report_id
+      if (typeof obj.reportId === 'string' && obj.reportId) return obj.reportId
+      if (obj.report && typeof obj.report === 'object' && (typeof obj.report.id === 'string')) return obj.report.id
+      // shallow search
+      for (const k of Object.keys(obj)) {
+        try {
+          const v = (obj as any)[k]
+          if (v && typeof v === 'object') {
+            const found = findReportId(v)
+            if (found) return found
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+      return null
+    }
+
+    let reportId = findReportId(scanItem)
+
     try {
-      await httpClient.post(`/scans/${id}/feedback`, { feedback: text })
-      toast({ title: 'Feedback saved', description: 'Your feedback was submitted', duration: 3000 })
+      // If not found in the list, fetch the scan details from the API and search there
+      if (!reportId) {
+        try {
+          const single = await httpClient.get(`/scans/${id}`)
+          const singleData = single?.data?.data ?? single?.data
+          reportId = findReportId(singleData)
+        } catch (fetchErr) {
+          // ignore fetch error here; we'll fallback to legacy endpoint
+          console.warn('Could not fetch single scan to find report id', fetchErr)
+        }
+      }
+
+      // If still not found, try the histories endpoint to locate a report by scan id
+      if (!reportId) {
+        try {
+          const hist = await httpClient.get(`/histories/?scan_id=${id}&limit=1`)
+          const histData = hist?.data?.data ?? hist?.data
+          const items = Array.isArray(histData) ? histData : (histData?.items ?? [])
+          if (items && items.length > 0) {
+            const first = items[0]
+            const found = findReportId(first)
+            if (found) reportId = found
+            else if (first.report && first.report.id) reportId = first.report.id
+          }
+        } catch (hErr) {
+          console.warn('Could not fetch histories to find report id', hErr)
+        }
+      }
+
+      if (reportId) {
+        await createReportFeedback(reportId, text)
+        toast({ title: 'Feedback saved', description: 'Report feedback created successfully', duration: 3000 })
+      } else {
+        // Fallback to legacy scan feedback endpoint
+        await httpClient.post(`/scans/${id}/feedback`, { feedback: text })
+        toast({ title: 'Feedback saved', description: 'Your feedback was submitted', duration: 3000 })
+      }
+
       // Optionally reload scans
       loadScans()
       setFeedbackById(prev => ({ ...prev, [id]: '' }))
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to submit feedback', err)
-      toast({ title: 'Submit failed', description: 'Could not submit feedback', duration: 4000 })
+      const msg = err?.response?.data?.message || err?.message || 'Could not submit feedback'
+      toast({ title: 'Submit failed', description: msg, duration: 4000 })
     }
   }
 

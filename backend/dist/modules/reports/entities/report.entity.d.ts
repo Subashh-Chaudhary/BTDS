@@ -10,6 +10,7 @@ export declare class Reports {
     treatment: Treatment | null;
     feedback_id: string | null;
     report_url: string | null;
+    is_verified: boolean;
     generated_at: Date;
     created_at: Date;
     updated_at: Date;

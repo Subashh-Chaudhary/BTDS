@@ -44,6 +44,9 @@ export class Reports {
   @Column({ type: 'text', nullable: true })
   report_url: string | null;
 
+  @Column({ type: 'boolean', default: false })
+  is_verified: boolean;
+
   @Column({ type: 'timestamp with time zone', default: () => 'now()' })
   generated_at: Date;
 

@@ -7,7 +7,14 @@ import { Treatment } from '../treatments/entities/treatment.entity';
 export declare class ReportsService {
     private readonly repo;
     private readonly usersRepo;
-    constructor(repo: Repository<Reports>, usersRepo: Repository<Users>);
+    private readonly treatmentsRepo;
+    constructor(repo: Repository<Reports>, usersRepo: Repository<Users>, treatmentsRepo: Repository<Treatment>);
+    updateReport(id: string, data: {
+        treatment_id?: string | null;
+        feedback_id?: string | null;
+        report_url?: string | null;
+        is_verified?: boolean | null;
+    }): Promise<Reports>;
     createReport(params: {
         user_id?: string | null;
         scan: Scan;
