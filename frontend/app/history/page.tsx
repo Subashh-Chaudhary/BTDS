@@ -249,6 +249,22 @@ export default function HistoryPage() {
     }
   };
 
+  // Robust recursive finder for nested report objects (some history items vary in shape)
+  const findReportObjectRecursive = (obj: any): any | null => {
+    if (!obj || typeof obj !== 'object') return null
+    if (obj.report && typeof obj.report === 'object') return obj.report
+    for (const k of Object.keys(obj)) {
+      try {
+        const v = (obj as any)[k]
+        if (v && typeof v === 'object') {
+          const found = findReportObjectRecursive(v)
+          if (found) return found
+        }
+      } catch (e) {}
+    }
+    return null
+  }
+
   useEffect(() => {
     if (isAuthenticated && user && user.role === 'user') {
       fetchHistories();
@@ -433,18 +449,30 @@ export default function HistoryPage() {
                               {item.report.prediction.description}
                             </p>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => toggleCardExpansion(item.id)}
-                            className="shrink-0 ml-4 hover:bg-blue-50 transition-colors duration-200"
-                          >
-                            {isExpanded ? (
-                              <ChevronUp className="h-4 w-4" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4" />
-                            )}
-                          </Button>
+                          <div className="flex items-center gap-3 ml-4 shrink-0">
+                            {(() => {
+                              const reportObj = findReportObjectRecursive(item) ?? (item.report as any)
+                              const isVerified = !!(reportObj && reportObj.is_verified)
+                              return isVerified ? (
+                                <span className="inline-flex items-center px-3 py-1 rounded-full bg-green-50 text-green-700 text-sm font-medium">Verified</span>
+                              ) : (
+                                <span className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-sm font-medium">Unverified</span>
+                              )
+                            })()}
+
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => toggleCardExpansion(item.id)}
+                              className="hover:bg-blue-50 transition-colors duration-200"
+                            >
+                              {isExpanded ? (
+                                <ChevronUp className="h-4 w-4" />
+                              ) : (
+                                 <ChevronDown className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
                         </div>
 
                         {/* Details Grid */}
