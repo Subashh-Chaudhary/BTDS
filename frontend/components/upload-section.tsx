@@ -115,6 +115,8 @@ export default function UploadSection() {
       };
 
       const res = await httpClient.post("/diabetes/predict", payload);
+
+      console.log("Prediction response", res);
       const body = res?.data;
       const payloadData = body?.data ?? body;
 
@@ -146,6 +148,43 @@ export default function UploadSection() {
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  // Map probability (0-1) to human-friendly category and short developer-facing advice
+  const getRiskMessage = (probability: number | null | undefined) => {
+    const p = Number(probability ?? 0) * 100;
+    if (Number.isNaN(p)) {
+      return { category: "Unknown", advice: "No probability available." };
+    }
+    if (p < 1) {
+      return {
+        category: "Very Low",
+        advice: "No immediate concern — routine monitoring recommended.",
+      };
+    }
+    if (p < 5) {
+      return {
+        category: "Low",
+        advice: "Low risk — consider lifestyle advice and routine follow-up.",
+      };
+    }
+    if (p < 20) {
+      return {
+        category: "Moderate",
+        advice: "Moderate risk — consider further clinical assessment.",
+      };
+    }
+    if (p < 50) {
+      return {
+        category: "Elevated",
+        advice:
+          "Elevated risk — recommend clinical follow-up and diagnostic testing.",
+      };
+    }
+    return {
+      category: "High",
+      advice: "High risk — urgent clinical evaluation recommended.",
+    };
   };
 
   return (
@@ -351,53 +390,144 @@ export default function UploadSection() {
 
           {/* Result Card */}
           {result && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-4 rounded-lg bg-white/5 border border-border"
-            >
-              <h4 className="font-medium text-foreground mb-2">
-                Prediction Result
-              </h4>
-              <div className="text-sm text-muted-foreground">
-                <p>
-                  <span className="font-semibold text-foreground">
-                    Prediction:{" "}
-                  </span>
-                  {result?.prediction?.label ??
-                    result?.label ??
-                    (result?.predicted ? String(result.predicted) : "N/A")}
-                </p>
-                {(result?.prediction?.probability ??
-                  result?.probability ??
-                  result?.confidence) != null && (
-                  <p>
-                    <span className="font-semibold text-foreground">
-                      Probability:{" "}
-                    </span>
-                    {(
-                      (result?.prediction?.probability ??
-                        result?.probability ??
-                        result?.confidence) * 100
-                    ).toFixed(2)}
-                    %
-                  </p>
-                )}
-                {result?.details && <p className="mt-2">{result.details}</p>}
-              </div>
-            </motion.div>
+            <>
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-4 rounded-lg bg-white/5 border border-border mb-4"
+              >
+                <h4 className="font-medium text-foreground mb-2">
+                  Prediction Result
+                </h4>
+                <div className="text-sm text-muted-foreground">
+                  {/* <p>
+                    {result?.prediction?.label ??
+                      result?.label ??
+                      result?.prediction?.prediction ??
+                      result?.predicted ??
+                      "N/A"}
+                  </p> */}
+                  {(result?.prediction?.probability ??
+                    result?.probability ??
+                    result?.confidence) != null &&
+                    (() => {
+                      const overallProb = Number(
+                        result?.prediction?.probability ??
+                          result?.probability ??
+                          result?.confidence ??
+                          0
+                      );
+                      const msg = getRiskMessage(overallProb);
+                      return (
+                        <>
+                          <p>
+                            <span className="font-semibold text-foreground">
+                              Probability:{" "}
+                            </span>
+                            {(overallProb * 100).toFixed(2)}%
+                            <span className="ml-2 text-sm text-foreground/80 font-medium">
+                              — {msg.category}
+                            </span>
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {msg.advice}
+                          </p>
+                        </>
+                      );
+                    })()}
+                  {result?.details && <p className="mt-2">{result.details}</p>}
+                </div>
+              </motion.div>
+
+              {/* Per-model breakdown + simple chart (inline, no deps) */}
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-4 rounded-lg bg-white/5 border border-border"
+              >
+                <h4 className="font-medium text-foreground mb-3">
+                  Model Breakdown
+                </h4>
+                {/* Build a normalized list of models with probabilities */}
+                {(() => {
+                  const list: { model_name: string; probability: number }[] =
+                    [];
+                  if (Array.isArray(result.results) && result.results.length) {
+                    for (const r of result.results) {
+                      list.push({
+                        model_name: r.model_name ?? r.model ?? "model",
+                        probability: Number(r.probability ?? 0) || 0,
+                      });
+                    }
+                  } else if (result.ml_response && result.ml_response.models) {
+                    for (const [k, v] of Object.entries(
+                      result.ml_response.models
+                    )) {
+                      list.push({
+                        model_name: k,
+                        probability: Number((v as any).probability ?? 0) || 0,
+                      });
+                    }
+                  }
+
+                  if (!list.length) {
+                    return (
+                      <p className="text-sm text-muted-foreground">
+                        No per-model results available.
+                      </p>
+                    );
+                  }
+
+                  const maxProb = Math.max(
+                    ...list.map((l) => l.probability),
+                    0.000001
+                  );
+
+                  return (
+                    <div className="space-y-3">
+                      {list.map((m) => {
+                        const pct = m.probability * 100;
+                        const widthPct = Math.round(
+                          (m.probability / maxProb) * 100
+                        );
+                        const msg = getRiskMessage(m.probability);
+                        return (
+                          <div key={m.model_name} className="">
+                            <div className="flex items-center justify-between">
+                              <div className="text-sm font-medium text-foreground">
+                                {m.model_name}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {pct.toFixed(2)}%
+                                <span className="ml-2 text-sm text-foreground/80 font-medium">
+                                  — {msg.category}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="mt-2 h-3 w-full bg-border rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-primary"
+                                style={{ width: `${Math.min(pct, 100)}%` }}
+                                aria-hidden
+                              />
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {msg.advice}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </motion.div>
+            </>
           )}
           {/* Info Box */}
           <div className="p-4 rounded-lg bg-accent/10 border border-accent/20 flex gap-3">
             <AlertCircle className="text-accent shrink-0 mt-0.5" size={20} />
-            <div className="text-sm text-muted-foreground">
-              <p className="font-medium text-foreground mb-1">Important:</p>
-              <p>
-                This tool is designed to assist medical professionals. Always
-                consult with qualified healthcare providers for diagnosis and
-                treatment decisions.
-              </p>
-            </div>
+            <div className="text-sm text-muted-foreground"></div>
           </div>
         </motion.div>
       </div>

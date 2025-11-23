@@ -1,3 +1,4 @@
+import { Roboto } from "next/font/google";
 import type React from "react";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
@@ -7,8 +8,14 @@ import { AuthProvider } from "@/components/auth-provider";
 import Navigation from "@/components/navigation";
 import Footer from "@/components/footer";
 
-const geistSans = Geist({ subsets: ["latin"] });
-const geistMono = Geist_Mono({ subsets: ["latin"] });
+// const geistSans = Geist({ subsets: ["latin"] });
+// const geistMono = Geist_Mono({ subsets: ["latin"] });
+
+const roboto = Roboto({
+  weight: ["400", "500", "700"], // Regular, Medium, Bold
+  subsets: ["latin"],
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Diabetes Detection System",
@@ -24,7 +31,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.className} ${geistMono.className}`}>
+      <body className={`${roboto.className} ${roboto.className}`}>
         <AuthProvider>
           <Navigation />
           {children}

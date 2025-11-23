@@ -409,14 +409,7 @@ export default function AdminDashboard() {
               bg: "bg-green-50",
               text: "text-green-700",
             },
-            {
-              title: "Experts",
-              value: stats.experts,
-              icon: <Stethoscope className="h-5 w-5 text-purple-600" />,
-              description: "Medical professionals",
-              bg: "bg-purple-50",
-              text: "text-purple-700",
-            },
+
             {
               title: "Total Scans",
               value: stats.totalScans,
