@@ -149,7 +149,7 @@ export default function UploadSection() {
   };
 
   return (
-    <section id="upload" className="py-20 px-4 bg-background">
+    <section id="screening" className="py-20 px-4 bg-background">
       <div className="max-w-4xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}

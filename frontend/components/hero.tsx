@@ -1,123 +1,150 @@
-"use client"
+"use client";
 
-import { motion } from "framer-motion"
-import { ArrowRight, Brain, Zap, Shield, Activity } from "lucide-react"
-import Image from "next/image"
+import { motion } from "framer-motion";
+import { ArrowRight, Brain, Zap, Shield, Activity } from "lucide-react";
+import Image from "next/image";
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: "easeOut" } },
+};
+
+const fadeInScaleX = {
+  hidden: { opacity: 0, scale: 0.8, x: 50 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    x: 0,
+    transition: { duration: 1, ease: "easeOut" },
+  },
+};
+
+const container = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.2, delayChildren: 0.3 } },
+};
+
+const floatingCards = [
+  {
+    icon: Brain,
+    label: "AI Powered",
+    color: "from-blue-500/20 to-cyan-500/20",
+  },
+  {
+    icon: Zap,
+    label: "Real-time Monitoring",
+    color: "from-purple-500/20 to-pink-500/20",
+  },
+  {
+    icon: Shield,
+    label: "Secure Data",
+    color: "from-green-500/20 to-emerald-500/20",
+  },
+];
+
+function FloatingCard({ Icon, label, color }: any) {
+  return (
+    <div
+      className={`p-4 rounded-xl bg-gradient-to-br ${color} border border-primary/10 backdrop-blur-sm`}
+    >
+      <Icon className="text-primary mb-2" size={20} />
+      <p className="text-xs font-medium text-foreground">{label}</p>
+    </div>
+  );
+}
+
+function StatCard({ value, label }: any) {
+  return (
+    <div>
+      <div className="text-3xl font-bold text-primary">{value}</div>
+      <div className="text-sm text-muted-foreground">{label}</div>
+    </div>
+  );
+}
 
 export default function Hero() {
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.2,
-        delayChildren: 0.3,
-      },
-    },
-  }
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.8, ease: "easeOut" },
-    },
-  }
-
-  const imageVariants = {
-    hidden: { opacity: 0, scale: 0.8, x: 50 },
-    visible: {
-      opacity: 1,
-      scale: 1,
-      x: 0,
-      transition: { duration: 1, ease: "easeOut" },
-    },
-  }
-
-  const floatingCards = [
-    { icon: Brain, label: "AI Powered", color: "from-blue-500/20 to-cyan-500/20" },
-    { icon: Zap, label: "Real-time", color: "from-purple-500/20 to-pink-500/20" },
-    { icon: Shield, label: "Secure", color: "from-green-500/20 to-emerald-500/20" },
-  ]
-
   return (
-    <section className="min-h-screen flex items-center justify-center pt-20 px-4 bg-gradient-to-b from-background via-background to-accent/5 relative overflow-hidden">
+    <section className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background via-background to-accent/5 relative overflow-hidden">
+      {/* Background glow circles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
-        <div
-          className="absolute bottom-20 right-10 w-72 h-72 bg-accent/10 rounded-full blur-3xl animate-pulse"
-          style={{ animationDelay: "1s" }}
-        ></div>
+        <div className="absolute top-20 left-10 w-72 h-72 bg-blue-200/20 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-20 right-10 w-72 h-72 bg-green-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
       </div>
 
       <motion.div
-        variants={containerVariants}
+        variants={container}
         initial="hidden"
         animate="visible"
-        className="max-w-6xl mx-auto w-full relative z-10"
+        className="max-w-screen-xl mx-auto w-full relative z-10 px-4"
       >
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center mb-16">
-          {/* Left Column - Text Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-16">
+          {/* Left Column */}
           <div>
-            <motion.div variants={itemVariants} className="mb-6">
+            <motion.div variants={fadeInUp} className="mb-6">
               <span className="inline-block px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium">
                 Advanced AI Technology
               </span>
             </motion.div>
 
             <motion.h1
-              variants={itemVariants}
+              variants={fadeInUp}
               className="text-5xl md:text-6xl font-bold text-foreground mb-6 leading-tight"
             >
-              Detect Brain Tumors with{" "}
+              Predict and Monitor Diabetes with{" "}
               <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                 Precision AI
               </span>
             </motion.h1>
 
-            <motion.p variants={itemVariants} className="text-lg md:text-xl text-muted-foreground mb-8 leading-relaxed">
-              Our advanced machine learning model analyzes medical imaging with exceptional accuracy, helping healthcare
-              professionals make informed decisions faster.
+            <motion.p
+              variants={fadeInUp}
+              className="text-lg md:text-xl text-muted-foreground mb-8 leading-relaxed"
+            >
+              Our AI-driven system analyzes glucose levels and health data to
+              detect early signs of diabetes, providing real-time insights to
+              patients and healthcare professionals.
             </motion.p>
 
-            <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4 mb-12">
+            <motion.div
+              variants={fadeInUp}
+              className="flex flex-col sm:flex-row gap-4 mb-12"
+            >
               <button className="px-8 py-3 rounded-full bg-primary text-white font-medium hover:bg-primary/90 transition flex items-center justify-center gap-2 group">
-                Start Detection
-                <ArrowRight size={20} className="group-hover:translate-x-1 transition" />
+                Start Monitoring
+                <ArrowRight
+                  size={20}
+                  className="group-hover:translate-x-1 transition"
+                />
               </button>
               <button className="px-8 py-3 rounded-full border border-border text-foreground font-medium hover:bg-accent transition">
                 Learn More
               </button>
             </motion.div>
 
-            <motion.div variants={itemVariants} className="grid grid-cols-3 gap-4">
-              {floatingCards.map((card, index) => {
-                const Icon = card.icon
-                return (
-                  <div
-                    key={index}
-                    className={`p-4 rounded-xl bg-gradient-to-br ${card.color} border border-primary/10 backdrop-blur-sm`}
-                  >
-                    <Icon className="text-primary mb-2" size={20} />
-                    <p className="text-xs font-medium text-foreground">{card.label}</p>
-                  </div>
-                )
-              })}
+            <motion.div variants={fadeInUp} className="grid grid-cols-3 gap-4">
+              {floatingCards.map((card, i) => (
+                <FloatingCard
+                  key={i}
+                  Icon={card.icon}
+                  label={card.label}
+                  color={card.color}
+                />
+              ))}
             </motion.div>
           </div>
 
-          {/* Right Column - Brain Scan Visualization */}
-          <motion.div variants={imageVariants} className="relative flex items-center justify-center">
+          {/* Right Column - Diabetes Visualization */}
+          <motion.div
+            variants={fadeInScaleX}
+            className="relative flex items-center justify-center"
+          >
             <div className="relative w-full max-w-md">
-              {/* Glow background effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-accent/20 rounded-3xl blur-3xl"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-100/20 to-green-100/20 rounded-3xl blur-3xl"></div>
 
-              {/* Brain scan image container */}
-              <div className="relative bg-gradient-to-br from-primary/10 to-accent/10 rounded-3xl p-8 border border-primary/20 backdrop-blur-sm">
+              <div className="relative bg-gradient-to-br from-blue-50/10 to-green-50/10 rounded-3xl p-8 border border-primary/20 backdrop-blur-sm">
                 <Image
-                  src="/brain-scan-mri-medical-imaging-tumor-detection.jpg"
-                  alt="Brain MRI Scan"
+                  src="/diabetes-monitoring-dashboard.jpg"
+                  alt="Diabetes Monitoring Dashboard"
                   width={400}
                   height={400}
                   className="w-full h-auto rounded-2xl"
@@ -126,27 +153,26 @@ export default function Hero() {
 
                 <motion.div
                   animate={{ opacity: [0.5, 1, 0.5] }}
-                  transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
+                  transition={{ duration: 2, repeat: Infinity }}
                   className="absolute top-4 right-4 flex items-center gap-2 bg-primary/80 px-3 py-1 rounded-full text-white text-xs font-medium backdrop-blur-sm"
                 >
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                  Scanning
+                  Monitoring
                 </motion.div>
-
-                <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-primary/40 rounded-tl-2xl"></div>
-                <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-accent/40 rounded-br-2xl"></div>
               </div>
 
               <motion.div
                 animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 3, repeat: Number.POSITIVE_INFINITY }}
+                transition={{ duration: 3, repeat: Infinity }}
                 className="absolute -bottom-6 -left-6 bg-white dark:bg-slate-900 rounded-xl p-4 shadow-lg border border-border"
               >
                 <div className="flex items-center gap-2">
                   <Activity className="text-primary" size={20} />
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Detection Rate</p>
-                    <p className="text-lg font-bold text-foreground">98.5%</p>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Detection Accuracy
+                    </p>
+                    <p className="text-lg font-bold text-foreground">97.2%</p>
                   </div>
                 </div>
               </motion.div>
@@ -155,21 +181,15 @@ export default function Hero() {
         </div>
 
         {/* Stats */}
-        <motion.div variants={itemVariants} className="grid grid-cols-3 gap-4 pt-16 border-t border-border">
-          <div>
-            <div className="text-3xl font-bold text-primary">98.5%</div>
-            <div className="text-sm text-muted-foreground">Accuracy Rate</div>
-          </div>
-          <div>
-            <div className="text-3xl font-bold text-primary">10K+</div>
-            <div className="text-sm text-muted-foreground">Scans Analyzed</div>
-          </div>
-          <div>
-            <div className="text-3xl font-bold text-primary">50+</div>
-            <div className="text-sm text-muted-foreground">Hospitals</div>
-          </div>
+        <motion.div
+          variants={fadeInUp}
+          className="grid grid-cols-3 gap-4 pt-16 border-t border-border"
+        >
+          <StatCard value="97.2%" label="Accuracy Rate" />
+          <StatCard value="15K+" label="Patients Monitored" />
+          <StatCard value="80+" label="Clinics Using System" />
         </motion.div>
       </motion.div>
     </section>
-  )
+  );
 }

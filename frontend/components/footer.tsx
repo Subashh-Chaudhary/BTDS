@@ -1,10 +1,10 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { motion } from "framer-motion"
+import Link from "next/link";
+import { motion } from "framer-motion";
 
 export default function Footer() {
-  const currentYear = new Date().getFullYear()
+  const currentYear = new Date().getFullYear();
 
   return (
     <footer className="bg-accent/5 border-t border-border py-12 px-4">
@@ -18,13 +18,14 @@ export default function Footer() {
             viewport={{ once: true }}
           >
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">BT</span>
+              <div className="w-8 h-8 bg-rose-500 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">GD</span>
               </div>
-              <span className="font-bold text-foreground">BrainDetect</span>
+              <span className="font-bold text-foreground">DiabetesDetect</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              Advanced AI-powered brain tumor detection for healthcare professionals.
+              Fast, clinical-grade diabetes risk screening that integrates with
+              healthcare workflows.
             </p>
           </motion.div>
 
@@ -112,7 +113,7 @@ export default function Footer() {
 
         {/* Bottom */}
         <div className="border-t border-border pt-8 flex flex-col md:flex-row justify-between items-center text-sm text-muted-foreground">
-          <p>&copy; {currentYear} BrainDetect. All rights reserved.</p>
+          <p>&copy; {currentYear} DiabetesDetect. All rights reserved.</p>
           <div className="flex gap-6 mt-4 md:mt-0">
             <Link href="#" className="hover:text-foreground transition">
               Twitter
@@ -127,5 +128,5 @@ export default function Footer() {
         </div>
       </div>
     </footer>
-  )
+  );
 }

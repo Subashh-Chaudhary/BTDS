@@ -1,30 +1,34 @@
-"use client"
+"use client";
 
-import { motion } from "framer-motion"
-import { Brain, Zap, Shield, Clock } from "lucide-react"
+import { motion } from "framer-motion";
+import { Brain, Zap, Shield, Clock } from "lucide-react";
 
 const features = [
   {
     icon: Brain,
-    title: "Advanced AI Model",
-    description: "State-of-the-art deep learning trained on thousands of medical images for superior accuracy.",
+    title: "Clinical Risk Model",
+    description:
+      "Predict diabetes risk from routine clinical measurements using validated algorithms.",
   },
   {
     icon: Zap,
-    title: "Lightning Fast",
-    description: "Get results in seconds, not hours. Real-time analysis for urgent medical decisions.",
+    title: "Fast Screening",
+    description:
+      "Screen large patient cohorts quickly to prioritize follow-up and preventive care.",
   },
   {
     icon: Shield,
-    title: "HIPAA Compliant",
-    description: "Enterprise-grade security ensuring patient data privacy and regulatory compliance.",
+    title: "Privacy Focused",
+    description:
+      "Built with data privacy in mind and designed to integrate with secure clinical workflows.",
   },
   {
     icon: Clock,
-    title: "Continuous Learning",
-    description: "Our model improves continuously with new data while maintaining strict privacy standards.",
+    title: "Continuous Improvement",
+    description:
+      "Models update as new data arrives to keep predictions accurate and clinically relevant.",
   },
-]
+];
 
 export default function Features() {
   return (
@@ -37,15 +41,18 @@ export default function Features() {
           viewport={{ once: true }}
           className="text-center mb-16"
         >
-          <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">Powerful Features for Healthcare</h2>
+          <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
+            Features for Diabetes Care
+          </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Designed specifically for medical professionals who need reliable, fast, and secure tumor detection.
+            Designed for clinicians and care teams to quickly assess diabetes
+            risk and take timely action.
           </p>
         </motion.div>
 
         <div className="grid md:grid-cols-2 gap-8">
           {features.map((feature, index) => {
-            const Icon = feature.icon
+            const Icon = feature.icon;
             return (
               <motion.div
                 key={index}
@@ -55,16 +62,18 @@ export default function Features() {
                 viewport={{ once: true }}
                 className="p-8 rounded-2xl bg-accent/5 border border-border hover:border-primary/50 transition group"
               >
-                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition">
-                  <Icon className="text-primary" size={24} />
+                <div className="w-12 h-12 rounded-lg bg-rose-50 flex items-center justify-center mb-4">
+                  <Icon className="text-rose-500" size={24} />
                 </div>
-                <h3 className="text-xl font-bold text-foreground mb-2">{feature.title}</h3>
+                <h3 className="text-xl font-bold text-foreground mb-2">
+                  {feature.title}
+                </h3>
                 <p className="text-muted-foreground">{feature.description}</p>
               </motion.div>
-            )
+            );
           })}
         </div>
       </div>
     </section>
-  )
+  );
 }
