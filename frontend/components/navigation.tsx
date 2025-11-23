@@ -191,12 +191,12 @@ export default function Navigation() {
                         History
                       </Link>
                       <div className="border-t border-border my-1" />
-                      <Link
+                      {/* <Link
                         href="/profile/delete"
                         className="block px-4 py-2 text-sm text-destructive hover:bg-destructive/10"
                       >
                         Delete Account
-                      </Link>
+                      </Link> */}
                       <button
                         onClick={handleLogout}
                         className="w-full text-left px-4 py-2 text-sm text-muted-foreground hover:bg-accent"

@@ -1,25 +1,28 @@
-"use client"
+"use client";
 
-import { motion } from "framer-motion"
-import { Upload, Zap, CheckCircle } from "lucide-react"
+import { motion } from "framer-motion";
+import { Zap, CheckCircle, File } from "lucide-react";
 
 const steps = [
   {
-    icon: Upload,
-    title: "Upload Image",
-    description: "Upload your MRI or CT scan in supported formats (DICOM, PNG, JPG)",
+    icon: File,
+    title: "Enter Your Health Data",
+    description:
+      "Input your health metrics such as glucose, BMI, blood pressure, insulin levels, and other relevant details manually  upload.",
   },
   {
     icon: Zap,
     title: "AI Analysis",
-    description: "Our advanced model processes the image and identifies potential tumors",
+    description:
+      "Our machine learning models analyze your data to calculate your diabetes risk and provide a probability score.",
   },
   {
     icon: CheckCircle,
-    title: "Get Results",
-    description: "Receive detailed analysis with confidence scores and recommendations",
+    title: "View Results & Recommendations",
+    description:
+      "Receive a clear risk assessment with confidence levels and personalized recommendations to manage or prevent diabetes effectively.",
   },
-]
+];
 
 export default function HowItWorks() {
   return (
@@ -32,15 +35,18 @@ export default function HowItWorks() {
           viewport={{ once: true }}
           className="text-center mb-16"
         >
-          <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">How It Works</h2>
+          <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
+            How It Works
+          </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Simple, secure, and efficient. Three steps to accurate tumor detection.
+            Simple, accurate, and secure. Three steps to assess your diabetes
+            risk.
           </p>
         </motion.div>
 
         <div className="grid md:grid-cols-3 gap-8">
           {steps.map((step, index) => {
-            const Icon = step.icon
+            const Icon = step.icon;
             return (
               <motion.div
                 key={index}
@@ -62,14 +68,16 @@ export default function HowItWorks() {
                   <div className="absolute -top-4 -right-4 w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-bold text-sm">
                     {index + 1}
                   </div>
-                  <h3 className="text-xl font-bold text-foreground mb-2">{step.title}</h3>
+                  <h3 className="text-xl font-bold text-foreground mb-2">
+                    {step.title}
+                  </h3>
                   <p className="text-muted-foreground">{step.description}</p>
                 </div>
               </motion.div>
-            )
+            );
           })}
         </div>
       </div>
     </section>
-  )
+  );
 }

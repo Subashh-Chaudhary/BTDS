@@ -97,7 +97,7 @@ export default function LoginPage() {
     <div className={styles.root}>
       <div className={styles.shell}>
         <aside className={styles.panelLeft} aria-hidden>
-          <div className={styles.logo}>BTDS</div>
+          <div className={styles.logo}>DDS</div>
           <h1 className={styles.lead}>A calm, confident place to start.</h1>
           <p className={styles.subtle}>
             Quick access to your projects and predictions — no clutter, just
@@ -163,7 +163,7 @@ export default function LoginPage() {
 
                   <Button
                     type="submit"
-                    className={styles.submit}
+                    className={`${styles.submit}`}
                     disabled={isLoading}
                   >
                     {isLoading ? "Signing in..." : "Sign in"}

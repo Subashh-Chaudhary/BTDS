@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowRight, Brain, Zap, Shield, Activity } from "lucide-react";
+import { ArrowRight, User, Zap, Shield, Activity } from "lucide-react";
 import Image from "next/image";
 
 const fadeInUp = {
@@ -26,15 +26,15 @@ const container = {
 
 const floatingCards = [
   {
-    icon: Brain,
+    icon: User,
     label: "AI Powered",
     color: "from-blue-500/20 to-cyan-500/20",
   },
-  {
-    icon: Zap,
-    label: "Real-time Monitoring",
-    color: "from-purple-500/20 to-pink-500/20",
-  },
+  // {
+  //   icon: Zap,
+  //   label: "Real-time Monitoring",
+  //   color: "from-purple-500/20 to-pink-500/20",
+  // },
   {
     icon: Shield,
     label: "Secure Data",
@@ -64,7 +64,7 @@ function StatCard({ value, label }: any) {
 
 export default function Hero() {
   return (
-    <section className="mt-32 min-h-screen flex items-center justify-center bg-gradient-to-b from-background via-background to-accent/5 relative overflow-hidden">
+    <section className=" min-h-screen flex items-center justify-center bg-gradient-to-b from-background via-background to-accent/5 relative overflow-hidden">
       {/* Background glow circles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-10 w-72 h-72 bg-blue-200/20 rounded-full blur-3xl animate-pulse"></div>
@@ -137,7 +137,7 @@ export default function Hero() {
 
               <div className="relative bg-gradient-to-br from-blue-50/10 to-green-50/10 rounded-3xl p-8 border border-primary/20 backdrop-blur-sm">
                 <Image
-                  src="/diabetes-monitoring-dashboard.jpg"
+                  src="/diabetes_detection_system.png"
                   alt="Diabetes Monitoring Dashboard"
                   width={400}
                   height={400}
@@ -164,25 +164,17 @@ export default function Hero() {
                   <Activity className="text-primary" size={20} />
                   <div>
                     <p className="text-xs font-medium text-muted-foreground">
-                      Detection Accuracy
+                      Getting ready
                     </p>
-                    <p className="text-lg font-bold text-foreground">97.2%</p>
+                    <p className="text-lg font-bold text-foreground">
+                      to detect
+                    </p>
                   </div>
                 </div>
               </motion.div>
             </div>
           </motion.div>
         </div>
-
-        {/* Stats */}
-        <motion.div
-          variants={fadeInUp}
-          className="grid grid-cols-3 gap-4 pt-16 border-t border-border"
-        >
-          <StatCard value="97.2%" label="Accuracy Rate" />
-          <StatCard value="15K+" label="Patients Monitored" />
-          <StatCard value="80+" label="Clinics Using System" />
-        </motion.div>
       </motion.div>
     </section>
   );
