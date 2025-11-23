@@ -60,16 +60,25 @@ export class InitialSchema1700000000000 implements MigrationInterface {
             )
         `);
 
-    // Create predictions table
+    // Create predictions table (generalized to support multiple model types)
     await queryRunner.query(`
             CREATE TABLE "predictions" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-                "tumor_type" character varying(255) NOT NULL,
-                "confidence_score" double precision NOT NULL,
-                "description" text,
+                "user_id" uuid,
+                -- (confidence_score, description, output_image_url removed)
+                -- Diabetes-specific columns
+                "pregnancies" integer,
+                "glucose" integer,
+                "blood_pressure" integer,
+                "skin_thickness" integer,
+                "insulin" integer,
+                "bmi" double precision,
+                "diabetes_pedigree_function" double precision,
+                "age" integer,
                 "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
                 "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-                CONSTRAINT "PK_predictions" PRIMARY KEY ("id")
+                CONSTRAINT "PK_predictions" PRIMARY KEY ("id"),
+                CONSTRAINT "FK_predictions_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE SET NULL
             )
         `);
 

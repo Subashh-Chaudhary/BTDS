@@ -106,13 +106,8 @@ export class ScansMlService {
         outputImageUrl = null;
       }
 
-  const safePrediction = new Prediction();
-      // Use explicit "none"/0 values so DB columns are satisfied and callers can detect this case
-      safePrediction.tumor_type = 'none';
-      safePrediction.confidence_score = 0;
-  safePrediction.description = `No detections | ml_request_id=${(mlPrediction as any)?.requestId ?? 'n/a'}`;
-      safePrediction.output_image_url = outputImageUrl ?? '';
-
+    const safePrediction = new Prediction();
+      // Persist an empty prediction record (diabetes-specific columns not applicable for scan)
       return this.predictionsRepository.save(safePrediction);
     }
 
@@ -171,13 +166,9 @@ export class ScansMlService {
       );
     }
 
+
     const prediction = new Prediction();
-    prediction.tumor_type = highestConfidenceDetection.class;
-    prediction.confidence_score = highestConfidenceDetection.confidence;
-    prediction.description = `Found ${mlPrediction.totalDetections} detection(s). Location: ${JSON.stringify(
-      highestConfidenceDetection.bbox,
-    )} | ml_request_id=${(mlPrediction as any)?.requestId ?? 'n/a'}`;
-    prediction.output_image_url = outputImageUrl;
+    // Store only scan/prediction linkage; diabetes-specific fields are not set for image scans
 
     // Save prediction
     return this.predictionsRepository.save(prediction);
