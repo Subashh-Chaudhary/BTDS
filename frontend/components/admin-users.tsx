@@ -349,15 +349,6 @@ export default function AdminDashboard() {
       {/* Admin Navigation Header */}
       <nav className="bg-white/95 backdrop-blur-sm border-b border-slate-200 px-6 py-4">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          {/* <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">DD</span>
-            </div>
-            <span className="font-bold text-lg text-slate-800">
-              Diabetes Detection System Admin
-            </span>
-          </div> */}
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-2 p-2 rounded-md hover:bg-slate-100 transition">
@@ -399,62 +390,64 @@ export default function AdminDashboard() {
         </div>
 
         {/* Stats Cards */}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="bg-linear-to-r from-blue-500 to-blue-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium opacity-90 flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Total Users
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{stats.totalUsers}</div>
-              <p className="text-blue-100 text-sm mt-1">Registered accounts</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-linear-to-r from-green-500 to-green-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium opacity-90 flex items-center gap-2">
-                <UserCheck className="h-4 w-4" />
-                Active Users
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{stats.activeUsers}</div>
-              <p className="text-green-100 text-sm mt-1">Currently active</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-linear-to-r from-purple-500 to-purple-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium opacity-90 flex items-center gap-2">
-                <Stethoscope className="h-4 w-4" />
-                Experts
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{stats.experts}</div>
-              <p className="text-purple-100 text-sm mt-1">
-                Medical professionals
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-linear-to-r from-orange-500 to-orange-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium opacity-90 flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Total Scans
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{stats.totalScans}</div>
-              <p className="text-orange-100 text-sm mt-1">
-                Predictions generated
-              </p>
-            </CardContent>
-          </Card>
+          {[
+            {
+              title: "Total Users",
+              value: stats.totalUsers,
+              icon: <Users className="h-5 w-5 text-blue-600" />,
+              description: "Registered accounts",
+              bg: "bg-blue-50",
+              text: "text-blue-700",
+            },
+            {
+              title: "Active Users",
+              value: stats.activeUsers,
+              icon: <UserCheck className="h-5 w-5 text-green-600" />,
+              description: "Currently active",
+              bg: "bg-green-50",
+              text: "text-green-700",
+            },
+            {
+              title: "Experts",
+              value: stats.experts,
+              icon: <Stethoscope className="h-5 w-5 text-purple-600" />,
+              description: "Medical professionals",
+              bg: "bg-purple-50",
+              text: "text-purple-700",
+            },
+            {
+              title: "Total Scans",
+              value: stats.totalScans,
+              icon: <FileText className="h-5 w-5 text-orange-600" />,
+              description: "Predictions generated",
+              bg: "bg-orange-50",
+              text: "text-orange-700",
+            },
+          ].map((card) => (
+            <Card
+              key={card.title}
+              className={`border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 ${card.bg}`}
+            >
+              <CardHeader className="pb-2 flex items-center justify-between">
+                <CardTitle
+                  className={`text-sm font-semibold flex items-center gap-2 ${card.text}`}
+                >
+                  {card.icon}
+                  {card.title}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-gray-900">
+                  {card.value}
+                </div>
+                <p className={`text-sm mt-1 ${card.text}`}>
+                  {card.description}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
         </div>
 
         {/* User Management Section */}
@@ -471,7 +464,7 @@ export default function AdminDashboard() {
               </div>
               <Button
                 onClick={() => setShowAdd(true)}
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-black hover:bg-orange-700"
               >
                 <Users className="h-4 w-4 mr-2" />
                 Add User
@@ -497,21 +490,21 @@ export default function AdminDashboard() {
             {!loading && (
               <div className="overflow-x-auto rounded-lg border border-slate-200">
                 <table className="w-full">
-                  <thead className="bg-slate-50">
+                  <thead className=" bg-slate-400">
                     <tr>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-white">
                         User
                       </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-white">
                         Email
                       </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-white">
                         Role
                       </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-white">
                         Status
                       </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-white">
                         Actions
                       </th>
                     </tr>
@@ -524,9 +517,6 @@ export default function AdminDashboard() {
                       >
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-linear-to-r from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold">
-                              {u.name?.[0] ?? "U"}
-                            </div>
                             <div>
                               <div className="font-medium text-slate-900">
                                 {u.name}
@@ -850,26 +840,6 @@ export default function AdminDashboard() {
                         className="mt-1"
                       />
                     </div>
-                    <div>
-                      <Label className="text-slate-700">User Type</Label>
-                      <Select
-                        value={form.user_type}
-                        onValueChange={(v) =>
-                          setForm((prev) => ({
-                            ...prev,
-                            user_type: v as "user" | "expert",
-                          }))
-                        }
-                      >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue placeholder="Select user type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="user">User</SelectItem>
-                          <SelectItem value="expert">Expert</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
                   </>
                 )}
 
@@ -887,7 +857,7 @@ export default function AdminDashboard() {
                     onClick={() =>
                       editingUser ? submitEdit() : submitNewUser()
                     }
-                    className="bg-blue-600 hover:bg-blue-700"
+                    className="bg-black hover:bg-orange-700"
                   >
                     {editingUser ? "Save" : "Create"}
                   </Button>

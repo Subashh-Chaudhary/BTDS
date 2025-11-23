@@ -64,7 +64,7 @@ function StatCard({ value, label }: any) {
 
 export default function Hero() {
   return (
-    <section className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background via-background to-accent/5 relative overflow-hidden">
+    <section className="mt-32 min-h-screen flex items-center justify-center bg-gradient-to-b from-background via-background to-accent/5 relative overflow-hidden">
       {/* Background glow circles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-10 w-72 h-72 bg-blue-200/20 rounded-full blur-3xl animate-pulse"></div>
@@ -80,12 +80,6 @@ export default function Hero() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-16">
           {/* Left Column */}
           <div>
-            <motion.div variants={fadeInUp} className="mb-6">
-              <span className="inline-block px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium">
-                Advanced AI Technology
-              </span>
-            </motion.div>
-
             <motion.h1
               variants={fadeInUp}
               className="text-5xl md:text-6xl font-bold text-foreground mb-6 leading-tight"

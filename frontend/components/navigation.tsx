@@ -37,7 +37,7 @@ export default function Navigation() {
     <>
       <header
         role="banner"
-        className="fixed top-0 left-0 right-0 z-50 pointer-events-auto my-5"
+        className="fixed bg-white top-0 left-0 right-0 z-50 pointer-events-auto"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="relative flex items-center h-20">
@@ -141,7 +141,7 @@ export default function Navigation() {
                   </Link>
                   <Link
                     href="/auth/register"
-                    className="hidden sm:inline-flex items-center px-4 py-2 rounded-full bg-linear-to-r from-rose-500 to-amber-400 text-white text-sm font-medium"
+                    className="hidden sm:inline-flex items-center px-4 py-2 rounded-full text-black text-sm font-medium"
                   >
                     Register
                   </Link>

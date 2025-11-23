@@ -140,44 +140,6 @@ export default function Footer() {
               </ul>
             </div>
           </div>
-
-          {/* Newsletter / CTA (col 10-12) */}
-          <div className="lg:col-span-3">
-            <div className="neu-surface p-4 rounded-xl">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-semibold">Stay informed</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Quarterly product updates and privacy notes.
-                  </p>
-                </div>
-              </div>
-
-              <form onSubmit={handleSubscribe} className="mt-4 flex gap-2">
-                <label htmlFor="footer-email" className="sr-only">
-                  Email
-                </label>
-                <input
-                  id="footer-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@company.com"
-                  className="flex-1 px-3 py-2 rounded-lg bg-input border border-border text-sm outline-none focus:ring-2 focus:ring-ring"
-                />
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-lg bg-(--primary) text-primary-foreground text-sm font-medium hover:brightness-105 transition"
-                >
-                  {submitted ? "Thanks" : "Subscribe"}
-                </button>
-              </form>
-
-              <div className="mt-3 text-xs text-muted-foreground">
-                We never share emails. Unsubscribe anytime.
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Legal row */}
