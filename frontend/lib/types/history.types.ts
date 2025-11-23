@@ -32,6 +32,7 @@ export interface HistoryItem {
     id: string;
     feedback_id: string;
     report_url: string | null;
+    is_verified: boolean;
     generated_at: string;
     created_at: string;
     updated_at: string;

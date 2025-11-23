@@ -260,7 +260,7 @@ export default function HistoryPage() {
           const found = findReportObjectRecursive(v)
           if (found) return found
         }
-      } catch (e) {}
+      } catch (e) { }
     }
     return null
   }
@@ -450,15 +450,11 @@ export default function HistoryPage() {
                             </p>
                           </div>
                           <div className="flex items-center gap-3 ml-4 shrink-0">
-                            {(() => {
-                              const reportObj = findReportObjectRecursive(item) ?? (item.report as any)
-                              const isVerified = !!(reportObj && reportObj.is_verified)
-                              return isVerified ? (
-                                <span className="inline-flex items-center px-3 py-1 rounded-full bg-green-50 text-green-700 text-sm font-medium">Verified</span>
-                              ) : (
-                                <span className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-sm font-medium">Unverified</span>
-                              )
-                            })()}
+                            {item.report.is_verified ? (
+                              <span className="inline-flex items-center px-3 py-1 rounded-full bg-green-50 text-green-700 text-sm font-medium">Verified</span>
+                            ) : (
+                              <span className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-sm font-medium">Unverified</span>
+                            )}
 
                             <Button
                               variant="ghost"
@@ -469,7 +465,7 @@ export default function HistoryPage() {
                               {isExpanded ? (
                                 <ChevronUp className="h-4 w-4" />
                               ) : (
-                                 <ChevronDown className="h-4 w-4" />
+                                <ChevronDown className="h-4 w-4" />
                               )}
                             </Button>
                           </div>
@@ -520,9 +516,8 @@ export default function HistoryPage() {
                     </div>
 
                     {/* Expanded Section */}
-                    <div className={`overflow-hidden transition-all duration-500 ease-in-out ${
-                      isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-                    }`}>
+                    <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                      }`}>
                       <div className="border-t border-gray-100 bg-gray-50/50 p-6 mt-6 rounded-b-xl">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
@@ -568,11 +563,10 @@ export default function HistoryPage() {
                       <PaginationItem>
                         <PaginationPrevious
                           onClick={() => setPage(Math.max(1, page - 1))}
-                          className={`transition-all duration-200 ${
-                            page === 1
+                          className={`transition-all duration-200 ${page === 1
                               ? 'pointer-events-none opacity-50'
                               : 'cursor-pointer hover:bg-blue-50 hover:text-blue-600 hover:shadow-md'
-                          }`}
+                            }`}
                         />
                       </PaginationItem>
 
@@ -581,7 +575,7 @@ export default function HistoryPage() {
                         .filter(p => {
                           // Show first, last, current, and adjacent pages
                           return p === 1 || p === pagination.totalPages ||
-                                 (p >= page - 1 && p <= page + 1);
+                            (p >= page - 1 && p <= page + 1);
                         })
                         .map((p, index, arr) => {
                           // Add ellipsis if there's a gap
@@ -596,11 +590,10 @@ export default function HistoryPage() {
                                   <PaginationLink
                                     onClick={() => setPage(p)}
                                     isActive={p === page}
-                                    className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
-                                      p === page
+                                    className={`cursor-pointer transition-all duration-200 hover:shadow-md ${p === page
                                         ? 'bg-linear-to-r from-blue-500 to-purple-600 text-white shadow-lg hover:shadow-xl'
                                         : 'hover:bg-blue-50 hover:text-blue-600'
-                                    }`}
+                                      }`}
                                   >
                                     {p}
                                   </PaginationLink>
@@ -613,11 +606,10 @@ export default function HistoryPage() {
                               <PaginationLink
                                 onClick={() => setPage(p)}
                                 isActive={p === page}
-                                className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
-                                  p === page
+                                className={`cursor-pointer transition-all duration-200 hover:shadow-md ${p === page
                                     ? 'bg-linear-to-r from-blue-500 to-purple-600 text-white shadow-lg hover:shadow-xl'
                                     : 'hover:bg-blue-50 hover:text-blue-600'
-                                }`}
+                                  }`}
                               >
                                 {p}
                               </PaginationLink>
@@ -628,11 +620,10 @@ export default function HistoryPage() {
                       <PaginationItem>
                         <PaginationNext
                           onClick={() => setPage(Math.min(pagination.totalPages, page + 1))}
-                          className={`transition-all duration-200 ${
-                            page === pagination.totalPages
+                          className={`transition-all duration-200 ${page === pagination.totalPages
                               ? 'pointer-events-none opacity-50'
                               : 'cursor-pointer hover:bg-blue-50 hover:text-blue-600 hover:shadow-md'
-                          }`}
+                            }`}
                         />
                       </PaginationItem>
                     </PaginationContent>

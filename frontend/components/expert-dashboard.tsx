@@ -81,7 +81,7 @@ export default function ExpertDashboard() {
           const found = findReportIdRecursive(v)
           if (found) return found
         }
-      } catch (e) {}
+      } catch (e) { }
     }
     return null
   }
@@ -96,7 +96,7 @@ export default function ExpertDashboard() {
           const found = findReportObjectRecursive(v)
           if (found) return found
         }
-      } catch (e) {}
+      } catch (e) { }
     }
     return null
   }
@@ -320,6 +320,9 @@ export default function ExpertDashboard() {
             const filename = scanObj?.filename ?? scanObj?.id
             const uploadedAt = scanObj?.uploaded_at ?? scanObj?.uploadedAt ?? (s as any).uploaded_at
 
+            // Extract user information
+            const userInfo = (s as any).user ?? historyReport?.user ?? scanObj?.user ?? null
+
             return (
               <Card key={scanObj?.id ?? (s as any).id} className="p-4">
                 <div className="flex flex-col md:flex-row gap-4">
@@ -355,6 +358,50 @@ export default function ExpertDashboard() {
                         })()}
                       </div>
                     </div>
+
+                    {/* User Information Section */}
+                    {userInfo && (
+                      <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <div className="flex items-center gap-2 mb-2">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          <span className="text-sm font-semibold text-blue-900 dark:text-blue-100">Patient Information</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                          {userInfo.name && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-blue-700 dark:text-blue-300 font-medium">Name:</span>
+                              <span className="text-blue-900 dark:text-blue-100">{userInfo.name}</span>
+                            </div>
+                          )}
+                          {userInfo.email && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-blue-700 dark:text-blue-300 font-medium">Email:</span>
+                              <span className="text-blue-900 dark:text-blue-100 truncate">{userInfo.email}</span>
+                            </div>
+                          )}
+                          {userInfo.phone && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-blue-700 dark:text-blue-300 font-medium">Phone:</span>
+                              <span className="text-blue-900 dark:text-blue-100">{userInfo.phone}</span>
+                            </div>
+                          )}
+                          {userInfo.age && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-blue-700 dark:text-blue-300 font-medium">Age:</span>
+                              <span className="text-blue-900 dark:text-blue-100">{userInfo.age}</span>
+                            </div>
+                          )}
+                          {userInfo.gender && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-blue-700 dark:text-blue-300 font-medium">Gender:</span>
+                              <span className="text-blue-900 dark:text-blue-100 capitalize">{userInfo.gender}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="mt-3 text-sm text-muted-foreground">
                       <p>

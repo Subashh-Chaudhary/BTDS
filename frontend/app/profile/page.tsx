@@ -1,4 +1,4 @@
-  "use client";
+"use client";
 
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -22,38 +22,47 @@ export default function ProfilePage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const router = useRouter()
   const [profileData, setProfileData] = useState({
-    name: safeUser?.name || '',
-    email: safeUser?.email || '',
-    phone: safeUser?.phone || '',
-    address: safeUser?.address || '',
-    age: (safeUser?.age as number) || null,
-    gender: safeUser?.gender || '',
-    avatar_url: (safeUser?.avatar as string) || safeUser?.avatar_url || '',
-    is_active: safeUser?.is_active ?? true,
-    is_verified: safeUser?.is_verified ?? false,
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    age: null as number | null,
+    gender: '',
+    avatar_url: '',
+    is_active: true,
+    is_verified: false,
   });
 
   // Keep local profileData in sync with store user updates (e.g. after login or save)
   useEffect(() => {
-    setProfileData(prev => ({
-      name: safeUser?.name ?? prev.name,
-      email: safeUser?.email ?? prev.email,
-      phone: safeUser?.phone ?? prev.phone,
-      address: safeUser?.address ?? prev.address,
-      age: (safeUser?.age as number) ?? prev.age,
-      gender: safeUser?.gender ?? prev.gender,
-      avatar_url: (safeUser?.avatar as string) || safeUser?.avatar_url || prev.avatar_url,
-      is_active: safeUser?.is_active ?? prev.is_active,
-      is_verified: safeUser?.is_verified ?? prev.is_verified,
-    }))
+    if (safeUser?.id) {
+      console.log('Profile useEffect - safeUser data:', {
+        id: safeUser?.id,
+        name: safeUser?.name,
+        email: safeUser?.email,
+        phone: safeUser?.phone,
+        address: safeUser?.address,
+        age: safeUser?.age,
+        gender: safeUser?.gender,
+        fullUser: safeUser
+      });
+
+      setProfileData({
+        name: safeUser?.name || '',
+        email: safeUser?.email || '',
+        phone: safeUser?.phone || '',
+        address: safeUser?.address || '',
+        age: typeof safeUser?.age === 'number' ? safeUser.age : null,
+        gender: safeUser?.gender || '',
+        avatar_url: safeUser?.avatar_url || safeUser?.avatar || '',
+        is_active: safeUser?.is_active ?? true,
+        is_verified: safeUser?.is_verified ?? false,
+      })
+    }
   }, [safeUser?.id, safeUser?.name, safeUser?.email, safeUser?.phone, safeUser?.address, safeUser?.age, safeUser?.gender, safeUser?.avatar, safeUser?.avatar_url, safeUser?.is_active, safeUser?.is_verified])
 
   const handleEdit = () => {
     setIsEditing(!isEditing);
-    if (isEditing) {
-      // TODO: Implement save functionality
-      // Call API to update user profile
-    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -78,7 +87,6 @@ export default function ProfilePage() {
     const url = URL.createObjectURL(file);
     setPreviewAvatar(url);
     setSelectedFile(file);
-    // in a real app we'd upload the file and set avatar_url to returned url
     setProfileData(prev => ({ ...prev, avatar_url: url }));
   };
 
@@ -86,25 +94,21 @@ export default function ProfilePage() {
     try {
       const form = new FormData()
       form.append('id', safeUser?.id)
-      form.append('file', file)
+      form.append('avatar', file)
 
       const res = await httpClient.post('/profile/avatar', form, {
-        // let axios/browser set multipart boundary
         headers: { 'Content-Type': undefined as unknown as string },
       })
 
       const body = res?.data
       const payload = body?.data ?? body
 
-      // try multiple common keys for returned avatar URL
       const avatarUrl = payload?.avatar_url || payload?.url || payload?.data?.avatar_url || payload?.avatar
       if (avatarUrl) {
         setProfileData(prev => ({ ...prev, avatar_url: avatarUrl }))
-        // refresh auth store from server so fields are consistent
         try {
           await initializeAuth?.()
         } catch (e) {
-          // fallback: set avatar locally if refresh fails
           useAuthStore.setState((s: any) => ({ user: { ...(s.user || {}), avatar: avatarUrl, avatar_url: avatarUrl } }))
         }
         toast({ title: 'Avatar uploaded', description: 'Profile avatar updated', duration: 3000 })
@@ -121,35 +125,29 @@ export default function ProfilePage() {
 
   const saveProfile = async () => {
     try {
-      // If user selected an avatar file, upload first
       if (selectedFile) {
         await uploadAvatar(selectedFile)
-        // revoke local preview object URL
-        try { previewAvatar && URL.revokeObjectURL(previewAvatar) } catch(e) {}
+        try { previewAvatar && URL.revokeObjectURL(previewAvatar) } catch (e) { }
         setSelectedFile(null)
       }
 
       const payload: any = {
         id: safeUser?.id,
         name: profileData.name,
+        phone: profileData.phone,
         address: profileData.address,
         is_active: profileData.is_active,
         age: profileData.age,
         gender: profileData.gender,
       }
 
-  const res = await httpClient.put('/profile', payload)
-      const body = res?.data
-      const data = body?.data ?? body
+      const res = await httpClient.put('/profile', payload)
 
-      // Update local store user from response if available, otherwise merge fields
-      const current = useAuthStore.getState().user || {}
-      // Refresh the auth store from server to pick up DB changes
       try {
         await initializeAuth?.()
       } catch (e) {
-        // If refresh fails, still merge local changes into store so UI updates
-        const merged = { ...(current as any), name: payload.name, address: payload.address, is_active: payload.is_active, age: payload.age, gender: payload.gender }
+        const current = useAuthStore.getState().user || {}
+        const merged = { ...(current as any), name: payload.name, phone: payload.phone, address: payload.address, is_active: payload.is_active, age: payload.age, gender: payload.gender }
         useAuthStore.setState({ user: merged as any })
       }
 
@@ -161,24 +159,16 @@ export default function ProfilePage() {
     }
   }
 
-  console.log('Rendering ProfilePage', { isAuthenticated, user, profileData });
   useEffect(() => {
     const init = async () => {
       try {
-        // Log auth state for debugging
-        console.log('Auth State:', {
-          isAuthenticated,
-          hasToken: !!token,
-          hasUser: !!user
-        });
-        
         setIsLoading(false);
       } catch (error) {
         console.error('Profile initialization error:', error);
         setIsLoading(false);
       }
     };
-    
+
     init();
   }, [isAuthenticated, token, user]);
 
@@ -197,13 +187,6 @@ export default function ProfilePage() {
       <div className="container mx-auto p-4">
         <Card className="p-6">
           <p>Please login to view your profile</p>
-          <div className="mt-2 text-sm text-gray-500">
-            Debug info: 
-            <br />
-            Authenticated: {isAuthenticated ? 'Yes' : 'No'}
-            <br />
-            Has token: {token ? 'Yes' : 'No'}
-          </div>
         </Card>
       </div>
     );
@@ -213,7 +196,6 @@ export default function ProfilePage() {
     <div className="container mx-auto p-4">
       <Card className="max-w-4xl mx-auto p-6">
         <div className="flex items-start justify-between gap-6">
-          {/* Left: profile summary */}
           <div className="w-1/3 bg-white/60 rounded-lg p-6 shadow-sm">
             <div className="flex flex-col items-center text-center space-y-4">
               <div className="relative">
@@ -266,7 +248,6 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Right: editable details */}
           <div className="flex-1">
             <div className="flex items-center justify-between mb-4">
               <h1 className="text-2xl font-bold">Profile</h1>
@@ -274,32 +255,9 @@ export default function ProfilePage() {
                 <Button variant={isEditing ? 'ghost' : 'default'} onClick={() => setIsEditing(prev => !prev)}>
                   {isEditing ? 'Cancel' : 'Edit'}
                 </Button>
-                {isEditing ? (
-                  <Button onClick={() => { console.log('Save', profileData); setIsEditing(false); }}>
+                {isEditing && (
+                  <Button onClick={saveProfile}>
                     Save Changes
-                  </Button>
-                ) : (
-                  <Button onClick={async () => {
-                    const email = safeUser?.email ?? ''
-                    try {
-                      if (navigator.clipboard && navigator.clipboard.writeText) {
-                        await navigator.clipboard.writeText(email)
-                      } else {
-                        // fallback for older browsers
-                        const el = document.createElement('textarea')
-                        el.value = email
-                        document.body.appendChild(el)
-                        el.select()
-                        document.execCommand('copy')
-                        document.body.removeChild(el)
-                      }
-                      toast({ title: 'Copied', description: 'Email copied to clipboard', duration: 2000 })
-                    } catch (err) {
-                      console.error('Copy failed', err)
-                      toast({ title: 'Copy failed', description: 'Could not copy email to clipboard', duration: 3000 })
-                    }
-                  }}>
-                    Copy Email
                   </Button>
                 )}
               </div>
@@ -338,7 +296,7 @@ export default function ProfilePage() {
 
               <div className="space-y-2">
                 <Label>Account Status</Label>
-                <div className="flex items-center gap-2"> 
+                <div className="flex items-center gap-2">
                   <Badge className={safeUser?.is_verified ? 'bg-emerald-500' : 'bg-gray-400'}>{safeUser?.is_verified ? 'Verified' : 'Unverified'}</Badge>
                 </div>
               </div>
