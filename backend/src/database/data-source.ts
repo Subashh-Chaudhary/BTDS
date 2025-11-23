@@ -4,6 +4,7 @@ import { Experts } from '../modules/expert/entities/expert.entity';
 import { Users } from '../modules/users/entities/users.entity';
 import { Scan } from '../modules/scans/entities/scan.entity';
 import { Prediction } from '../modules/predictions/entities/prediction.entity';
+import { PredictionResult } from '../modules/predictions/entities/prediction-result.entity';
 import { Treatment } from '../modules/treatments/entities/treatment.entity';
 
 // Load environment variables
@@ -16,7 +17,7 @@ export const AppDataSource = new DataSource({
   username: process.env.DB_USERNAME,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  entities: [Experts, Users, Scan, Prediction, Treatment],
+  entities: [Experts, Users, Scan, Prediction, PredictionResult, Treatment],
   migrations: [__dirname + '/migrations/*{.ts,.js}'],
   migrationsTableName: 'migrations',
   synchronize: true,
