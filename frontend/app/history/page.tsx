@@ -5,6 +5,7 @@ import { useAuthStore } from "@/lib/store/auth.store";
 import { useState, useEffect } from "react";
 import { httpClient } from '@/lib/http-client';
 import { HistoryItem, HistoryResponse } from '@/lib/types/history.types';
+import { FeedbackItem, FeedbackResponse } from '@/lib/types/feedback.types';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,7 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from "@/components/ui/pagination";
-import { Calendar, Eye, FileText, Image as ImageIcon, User, Download, ExternalLink, RefreshCw, ChevronDown, ChevronUp, X as XIcon } from "lucide-react";
+import { Calendar, Eye, FileText, Image as ImageIcon, User, Download, ExternalLink, RefreshCw, ChevronDown, ChevronUp, X as XIcon, MessageSquare, CheckCircle2 } from "lucide-react";
 import jsPDF from 'jspdf';
 import { useToast } from "@/hooks/use-toast";
 
@@ -34,10 +35,58 @@ export default function HistoryPage() {
   const [animatingCards, setAnimatingCards] = useState<Set<string>>(new Set());
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const [feedbacks, setFeedbacks] = useState<Record<string, FeedbackItem[]>>({});
+  const [loadingFeedbacks, setLoadingFeedbacks] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
-  const toggleCardExpansion = (cardId: string) => {
+  const fetchFeedback = async (reportId: string) => {
+    // Skip if we're already loading this report's feedback
+    if (loadingFeedbacks.has(reportId)) return;
+
+    // If we already have feedbacks and they are non-empty, skip fetching again
+    if (Object.prototype.hasOwnProperty.call(feedbacks, reportId) && feedbacks[reportId]?.length > 0) return;
+
+    console.debug('fetchFeedback: requesting feedbacks for reportId', reportId);
+    setLoadingFeedbacks(prev => new Set(prev).add(reportId));
+    try {
+      const response = await httpClient.get<FeedbackResponse>(`/feedbacks/report/${reportId}`);
+      console.debug('fetchFeedback: response', response?.data);
+
+      const list = Array.isArray(response?.data?.data) ? response.data.data : [];
+
+      setFeedbacks(prev => ({
+        ...prev,
+        [reportId]: list,
+      }));
+
+      console.debug(`fetchFeedback: stored ${list.length} feedback(s) for`, reportId);
+    } catch (error) {
+      console.error('Failed to fetch feedback:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load expert feedback",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingFeedbacks(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(reportId);
+        return newSet;
+      });
+    }
+  };
+
+  console.log("Feedbacks:", feedbacks);
+
+  const toggleCardExpansion = (cardId: string, reportId: string) => {
+    console.debug('toggleCardExpansion', { cardId, reportId, currentlyExpanded: expandedCards.has(cardId) });
     setAnimatingCards(prev => new Set(prev).add(cardId));
+
+    // Fetch feedback when expanding
+    if (!expandedCards.has(cardId)) {
+      fetchFeedback(reportId);
+    }
+
     setTimeout(() => {
       setExpandedCards(prev => {
         const newSet = new Set(prev);
@@ -55,6 +104,29 @@ export default function HistoryPage() {
       });
     }, 150);
   };
+
+  // If histories already reference a feedback id (some reports may already have feedbacks),
+  // pre-fetch them so the UI shows available feedback without requiring user to expand.
+  useEffect(() => {
+    if (!histories || histories.length === 0) return;
+    histories.forEach((item) => {
+      try {
+        const reportObj = findReportObjectRecursive(item) ?? (item.report as any);
+        const rid = reportObj?.id;
+        if (!rid) return;
+        // If report object contains feedback_id, try prefetching its feedbacks
+        if (reportObj.feedback_id) {
+          // only fetch if not already loading and not present
+          if (!loadingFeedbacks.has(rid) && (!feedbacks[rid] || feedbacks[rid].length === 0)) {
+            console.debug('Prefetching feedback for report with feedback_id', { rid, feedback_id: reportObj.feedback_id });
+            fetchFeedback(rid);
+          }
+        }
+      } catch (e) {
+        // ignore per-item failures
+      }
+    });
+  }, [histories]);
 
   const openPreview = (src?: string | null) => {
     if (!src) return;
@@ -405,6 +477,10 @@ export default function HistoryPage() {
             const isExpanded = expandedCards.has(item.id);
             const isAnimating = animatingCards.has(item.id);
 
+            // normalize report id for this item (some shapes embed report differently)
+            const _reportObj = findReportObjectRecursive(item) ?? (item.report as any);
+            const reportId = _reportObj?.id ?? item.report?.id;
+
             return (
               <Card
                 key={item.id}
@@ -441,25 +517,34 @@ export default function HistoryPage() {
                       {/* Content Section */}
                       <div className="flex-1 space-y-4">
                         <div className="flex items-start justify-between">
-                          <div className="flex-1">
+                          <div className="flex-1 min-w-0">
                             <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors duration-300">
                               Prediction Result
                             </h3>
-                            <p className="text-gray-600 leading-relaxed">
+                            <p className="text-gray-600 leading-relaxed whitespace-normal max-w-full break-all">
                               {item.report.prediction.description}
                             </p>
                           </div>
-                          <div className="flex items-center gap-3 ml-4 shrink-0">
-                            {item.report.is_verified ? (
-                              <span className="inline-flex items-center px-3 py-1 rounded-full bg-green-50 text-green-700 text-sm font-medium">Verified</span>
-                            ) : (
-                              <span className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-sm font-medium">Unverified</span>
-                            )}
+                          <div className="flex items-center gap-3 ml-4 shrink-0 min-w-[140px]">
+                            {(() => {
+                                // Use normalized report object computed earlier (if available) to avoid mismatches
+                                const reportObjLocal = (typeof _reportObj !== 'undefined' && _reportObj) ? _reportObj : (findReportObjectRecursive(item) ?? (item.report as any));
+                                if (!reportObjLocal) {
+                                  console.debug('No report object found for history item', item.id);
+                                  return <span className="inline-flex items-center px-3 py-1 rounded-full bg-yellow-50 text-yellow-700 text-sm font-medium">Unknown</span>;
+                                }
+                                const isVerified = !!(reportObjLocal && reportObjLocal.is_verified);
+                                return isVerified ? (
+                                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-green-50 text-green-700 text-sm font-medium">Verified</span>
+                                ) : (
+                                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-sm font-medium">Unverified</span>
+                                )
+                              })()}
 
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => toggleCardExpansion(item.id)}
+                              onClick={() => toggleCardExpansion(item.id, reportId)}
                               className="hover:bg-blue-50 transition-colors duration-200"
                             >
                               {isExpanded ? (
@@ -516,8 +601,7 @@ export default function HistoryPage() {
                     </div>
 
                     {/* Expanded Section */}
-                    <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-                      }`}>
+                    <div className={`transition-all duration-500 ease-in-out ${isExpanded ? 'max-h-[1200px] opacity-100 overflow-auto' : 'max-h-0 opacity-0 overflow-hidden'}`}>
                       <div className="border-t border-gray-100 bg-gray-50/50 p-6 mt-6 rounded-b-xl">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
@@ -544,6 +628,71 @@ export default function HistoryPage() {
                           </div>
                         </div>
                       </div>
+
+                      {/* Feedback Section */}
+                      <div className="mt-8 pt-6 border-t border-gray-200">
+                        <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                          <MessageSquare className="h-4 w-4" />
+                          Expert Feedback
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => fetchFeedback(reportId)}
+                            className="ml-3 text-xs"
+                          >
+                            <RefreshCw className="h-3 w-3 mr-2" />
+                            Refresh
+                          </Button>
+                        </h4>
+
+                        {(() => { console.debug('rendering feedback for', reportId, feedbacks[reportId]); return null; })()}
+
+                        {loadingFeedbacks.has(reportId) ? (
+                          <div className="space-y-3">
+                            <Skeleton className="h-4 w-3/4" />
+                            <Skeleton className="h-4 w-1/2" />
+                          </div>
+                        ) : feedbacks[reportId]?.length > 0 ? (
+                          <div className="space-y-4">
+                            {feedbacks[reportId].map((feedback) => (
+                              <div key={feedback.id} className="bg-white p-4 rounded-xl border border-blue-100 shadow-sm">
+                                <div className="flex items-start gap-3">
+                                  <div className="shrink-0">
+                                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold">
+                                      {feedback.expert.name.charAt(0)}
+                                    </div>
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <div>
+                                        <h5 className="font-medium text-gray-900">{feedback.expert.name}</h5>
+                                        <p className="text-xs text-gray-500">{feedback.expert.email}</p>
+                                      </div>
+                                      <div className="text-xs text-gray-500 flex items-center gap-2">
+                                        {feedback.verified_at ? (
+                                          <>
+                                            <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                            <span>{new Date(feedback.verified_at).toLocaleString()}</span>
+                                          </>
+                                        ) : (
+                                          <span className="text-yellow-600">Unverified</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <p className="text-gray-600 text-sm leading-relaxed">
+                                      {feedback.feedback_text}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-6 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                            <p className="text-gray-500 text-sm">No expert feedback available for this report yet.</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -564,8 +713,8 @@ export default function HistoryPage() {
                         <PaginationPrevious
                           onClick={() => setPage(Math.max(1, page - 1))}
                           className={`transition-all duration-200 ${page === 1
-                              ? 'pointer-events-none opacity-50'
-                              : 'cursor-pointer hover:bg-blue-50 hover:text-blue-600 hover:shadow-md'
+                            ? 'pointer-events-none opacity-50'
+                            : 'cursor-pointer hover:bg-blue-50 hover:text-blue-600 hover:shadow-md'
                             }`}
                         />
                       </PaginationItem>
@@ -591,8 +740,8 @@ export default function HistoryPage() {
                                     onClick={() => setPage(p)}
                                     isActive={p === page}
                                     className={`cursor-pointer transition-all duration-200 hover:shadow-md ${p === page
-                                        ? 'bg-linear-to-r from-blue-500 to-purple-600 text-white shadow-lg hover:shadow-xl'
-                                        : 'hover:bg-blue-50 hover:text-blue-600'
+                                      ? 'bg-linear-to-r from-blue-500 to-purple-600 text-white shadow-lg hover:shadow-xl'
+                                      : 'hover:bg-blue-50 hover:text-blue-600'
                                       }`}
                                   >
                                     {p}
@@ -607,8 +756,8 @@ export default function HistoryPage() {
                                 onClick={() => setPage(p)}
                                 isActive={p === page}
                                 className={`cursor-pointer transition-all duration-200 hover:shadow-md ${p === page
-                                    ? 'bg-linear-to-r from-blue-500 to-purple-600 text-white shadow-lg hover:shadow-xl'
-                                    : 'hover:bg-blue-50 hover:text-blue-600'
+                                  ? 'bg-linear-to-r from-blue-500 to-purple-600 text-white shadow-lg hover:shadow-xl'
+                                  : 'hover:bg-blue-50 hover:text-blue-600'
                                   }`}
                               >
                                 {p}
@@ -621,8 +770,8 @@ export default function HistoryPage() {
                         <PaginationNext
                           onClick={() => setPage(Math.min(pagination.totalPages, page + 1))}
                           className={`transition-all duration-200 ${page === pagination.totalPages
-                              ? 'pointer-events-none opacity-50'
-                              : 'cursor-pointer hover:bg-blue-50 hover:text-blue-600 hover:shadow-md'
+                            ? 'pointer-events-none opacity-50'
+                            : 'cursor-pointer hover:bg-blue-50 hover:text-blue-600 hover:shadow-md'
                             }`}
                         />
                       </PaginationItem>
@@ -642,31 +791,31 @@ export default function HistoryPage() {
             </Card>
           </div>
         )}
-      </div>
 
-      {/* Image preview modal */}
-      {previewOpen && previewSrc && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-          onClick={closePreview}
-        >
+        {/* Image preview modal */}
+        {previewOpen && previewSrc && (
           <div
-            className="relative max-w-5xl w-full max-h-[90vh] rounded-md overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+            onClick={closePreview}
           >
-            <button
-              aria-label="Close preview"
-              onClick={closePreview}
-              className="absolute right-2 top-2 z-50 p-2 bg-black/50 rounded-full hover:bg-black/40 transition"
+            <div
+              className="relative max-w-5xl w-full max-h-[90vh] rounded-md overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
             >
-              <XIcon className="text-white" />
-            </button>
-            <img src={previewSrc} alt="Preview" className="w-full h-auto max-h-[90vh] object-contain bg-black" />
+              <button
+                aria-label="Close preview"
+                onClick={closePreview}
+                className="absolute right-2 top-2 z-50 p-2 bg-black/50 rounded-full hover:bg-black/40 transition"
+              >
+                <XIcon className="text-white" />
+              </button>
+              <img src={previewSrc} alt="Preview" className="w-full h-auto max-h-[90vh] object-contain bg-black" />
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

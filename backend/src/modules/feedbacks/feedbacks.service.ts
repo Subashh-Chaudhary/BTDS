@@ -82,10 +82,13 @@ export class FeedbacksService {
 
     // Prefer linking to both report and its scan (if present)
     const payload: DeepPartial<Feedback> = {
-      // rely on relations to set FK columns to avoid type mismatches
+      // set relations and explicit FK columns to avoid mismatches
       report,
+      report_id: report.id,
       scan: report.scan,
+      scan_id: report.scan?.id,
       expert,
+      expert_id: expert.id,
       feedback_text: data.feedback_text,
       verified_at: new Date(),
     };
