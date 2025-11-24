@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere } from 'typeorm';
 import { Reports } from './entities/report.entity';
@@ -112,5 +112,11 @@ export class ReportsService {
     });
     if (!report) throw new NotFoundException('Report not found');
     return report;
+  }
+
+  async removeReport(id: string, userId: string) {
+    const report = await this.findById(id);
+    await this.repo.remove(report);
+    return { id };
   }
 }

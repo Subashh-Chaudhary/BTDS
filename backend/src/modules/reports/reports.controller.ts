@@ -9,6 +9,7 @@ import {
   UseGuards,
   Put,
   Body,
+  Delete,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { ReportsService } from './reports.service';
@@ -99,6 +100,24 @@ export class ReportsController {
       HttpStatus.OK,
       `/reports/${id}`,
       'PUT',
+    );
+    return res.status(response.statusCode).json(response);
+  }
+
+  @Delete('reports/:id')
+  @UseGuards(JwtAuthGuard)
+  async remove(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @GetUser() user: Users,
+    @Res() res: Response,
+  ) {
+    const result = await this.reportsService.removeReport(id, user.id);
+    const response = ResponseHelper.success(
+      result,
+      'Report removed successfully',
+      HttpStatus.OK,
+      `/reports/${id}`,
+      'DELETE',
     );
     return res.status(response.statusCode).json(response);
   }

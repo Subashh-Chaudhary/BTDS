@@ -33,4 +33,7 @@ export declare class ReportsService {
         limit: number;
     }>;
     findById(id: string): Promise<Reports>;
+    removeReport(id: string, userId: string): Promise<{
+        id: string;
+    }>;
 }

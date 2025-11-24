@@ -13,4 +13,5 @@ export declare class ReportsController {
         report_url?: string | null;
         is_verified?: boolean | null;
     }>, res: Response): Promise<Response<any, Record<string, any>>>;
+    remove(id: string, user: Users, res: Response): Promise<Response<any, Record<string, any>>>;
 }
