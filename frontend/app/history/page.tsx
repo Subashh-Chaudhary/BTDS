@@ -347,16 +347,27 @@ export default function HistoryPage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await httpClient.get<HistoryResponse>(`/histories/?user_id=${user?.id}&page=${page}&limit=10`);
-      const data = response.data;
-      if (data.success) {
-        setHistories(data.data.items);
-        setPagination(data.data.pagination);
-      } else {
-        setError('Failed to fetch histories');
-      }
+      // Prefer reports endpoint which returns canonical report objects
+      const response = await httpClient.get(`/reports/?user_id=${user?.id}&page=${page}&limit=10`);
+      const data = response?.data ?? response;
+      // backend returns { success, data: { items: [...] , pagination: {} } }
+      const items = data?.data?.items ?? data?.items ?? [];
+      const paginationObj = data?.data?.pagination ?? data?.pagination ?? null;
+
+      // Normalize reports into the expected `histories` shape used by the UI
+      // Original UI expects item.report, item.user, item.viewed_at, item.id
+      const normalized = (items || []).map((r: any) => ({
+        id: r.id,
+        report: r,
+        user: r.user ?? r.user_id ?? null,
+        viewed_at: r.generated_at ?? r.created_at ?? null,
+      }));
+
+      setHistories(normalized);
+      setPagination(paginationObj);
     } catch (err: any) {
-      setError(err.message || 'An error occurred');
+      console.error('Failed to fetch reports for user', err);
+      setError(err?.message || 'An error occurred');
     } finally {
       setLoading(false);
     }

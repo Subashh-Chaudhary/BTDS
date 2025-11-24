@@ -20,49 +20,29 @@ type ScanItem = {
   uploaded_at?: string
   result?: any
 }
+type ReportItem = any
 
 export default function ExpertDashboard() {
   const currentUser = useAuthStore((s) => s.user)
   const initializeAuth = useAuthStore((s) => s.initializeAuth)
   const isAdmin = !!currentUser?.is_admin
-  const [scans, setScans] = useState<ScanItem[]>([])
+  const [reports, setReports] = useState<ReportItem[]>([])
   const [loading, setLoading] = useState(false)
   const [feedbackById, setFeedbackById] = useState<Record<string, string>>({})
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewSrc, setPreviewSrc] = useState<string | null>(null)
 
-  const loadScans = async () => {
+  const loadReports = async () => {
     setLoading(true)
     try {
-      // For experts we prefer the `/histories` endpoint which contains report objects
-      // so that actions like verify/feedback reflect immediately.
-      let res
-      try {
-        res = await httpClient.get('/histories')
-        const payload = res?.data?.data ?? res?.data
-        // payload may be an object with items/pagination or an array
-        const items = Array.isArray(payload) ? payload : (Array.isArray(payload?.items) ? payload.items : null)
-        if (items) {
-          setScans(items as any)
-          return
-        }
-        // if payload itself looks like an item array, set it
-      } catch (e) {
-        // ignore and fallback to /scans
-      }
-
-      const res2 = await httpClient.get('/scans')
-      const data = res2?.data?.data ?? res2?.data
-      if (Array.isArray(data)) {
-        setScans(data)
-      } else if (Array.isArray(res2?.data)) {
-        setScans(res2.data)
-      } else {
-        setScans([])
-      }
+      const res = await httpClient.get('/reports')
+      const payload = res?.data?.data ?? res?.data
+      const items = Array.isArray(payload) ? payload : (payload?.items ?? [])
+      setReports(items || [])
     } catch (err: any) {
-      console.error('Failed to load scans for expert dashboard', err)
-      toast({ title: 'Load failed', description: 'Could not fetch histories', duration: 4000 })
+      console.error('Failed to load reports for expert dashboard', err)
+      toast({ title: 'Load failed', description: 'Could not fetch reports', duration: 4000 })
+      setReports([])
     } finally {
       setLoading(false)
     }
@@ -131,9 +111,7 @@ export default function ExpertDashboard() {
   }
 
   useEffect(() => {
-    if (!isAdmin) {
-      loadScans()
-    }
+    if (!isAdmin) loadReports()
   }, [isAdmin])
 
   const handleFeedbackChange = (id: string, value: string) => {
@@ -147,58 +125,21 @@ export default function ExpertDashboard() {
       return
     }
 
-    // Try to find the scan item to see if a report id exists
-    const scanItem = scans.find((s) => s.id === id) as any
-
-    let reportId = findReportIdRecursive(scanItem)
+    // For reports view, the id is the report id
+    const reportId = id
 
     try {
-      // If not found in the list, fetch the scan details from the API and search there
-      if (!reportId) {
-        try {
-          const single = await httpClient.get(`/scans/${id}`)
-          const singleData = single?.data?.data ?? single?.data
-          reportId = findReportIdRecursive(singleData)
-        } catch (fetchErr) {
-          // ignore fetch error here; we'll fallback to legacy endpoint
-          console.warn('Could not fetch single scan to find report id', fetchErr)
-        }
-      }
-
-      // If still not found, try the histories endpoint to locate a report by scan id
-      if (!reportId) {
-        try {
-          const hist = await httpClient.get(`/histories/?scan_id=${id}&limit=1`)
-          const histData = hist?.data?.data ?? hist?.data
-          const items = Array.isArray(histData) ? histData : (histData?.items ?? [])
-          if (items && items.length > 0) {
-            const first = items[0]
-            const found = findReportIdRecursive(first)
-            if (found) reportId = found
-            else if (first.report && first.report.id) reportId = first.report.id
-          }
-        } catch (hErr) {
-          console.warn('Could not fetch histories to find report id', hErr)
-        }
-      }
-
-      if (reportId) {
-        const resp = await requestWithAuthRetry(() => createReportFeedback(reportId!, text))
-        console.debug('[expert-dashboard] createReportFeedback response', resp)
-        if (resp?.success || resp?.statusCode === 201 || resp?.data) {
-          toast({ title: 'Feedback saved', description: 'Report feedback created successfully', duration: 3000 })
-        } else {
-          toast({ title: 'Submit failed', description: 'Server did not confirm feedback creation', duration: 4000 })
-        }
+      const resp = await requestWithAuthRetry(() => createReportFeedback(reportId!, text))
+      console.debug('[expert-dashboard] createReportFeedback response', resp)
+      if (resp?.success || resp?.statusCode === 201 || resp?.data) {
+        toast({ title: 'Feedback saved', description: 'Report feedback created successfully', duration: 3000 })
       } else {
-        // Fallback to legacy scan feedback endpoint (with auth-retry)
-        const resp2 = await requestWithAuthRetry(() => httpClient.post(`/scans/${id}/feedback`, { feedback: text }))
-        console.debug('[expert-dashboard] fallback feedback response', resp2)
-        toast({ title: 'Feedback saved', description: 'Your feedback was submitted', duration: 3000 })
+        toast({ title: 'Submit failed', description: 'Server did not confirm feedback creation', duration: 4000 })
       }
+      
 
-      // Optionally reload scans
-      loadScans()
+      // Optionally reload reports
+      loadReports()
       setFeedbackById(prev => ({ ...prev, [id]: '' }))
     } catch (err: any) {
       console.error('Failed to submit feedback', err)
@@ -208,54 +149,20 @@ export default function ExpertDashboard() {
   }
 
   const verifyPrediction = async (id: string) => {
-    // Try to find a report id for this scan and prefer PUT /reports/:id
-    const scanItem = scans.find((s) => s.id === id) as any
-    let reportId = findReportIdRecursive(scanItem)
+    // id is report id in reports view
+    const reportId = id
 
     try {
-      if (!reportId) {
-        try {
-          const single = await httpClient.get(`/scans/${id}`)
-          const singleData = single?.data?.data ?? single?.data
-          reportId = findReportIdRecursive(singleData)
-        } catch (e) {
-          console.warn('Could not fetch scan to find report id for verify', e)
-        }
-      }
-
-      if (!reportId) {
-        try {
-          const hist = await httpClient.get(`/histories/?scan_id=${id}&limit=1`)
-          const histData = hist?.data?.data ?? hist?.data
-          const items = Array.isArray(histData) ? histData : (histData?.items ?? [])
-          if (items && items.length > 0) {
-            const first = items[0]
-            const found = findReportIdRecursive(first)
-            if (found) reportId = found
-            else if (first.report && first.report.id) reportId = first.report.id
-          }
-        } catch (hErr) {
-          console.warn('Could not fetch histories to find report id for verify', hErr)
-        }
-      }
-
-      if (reportId) {
-        const resp = await requestWithAuthRetry(() => updateReport(reportId!, { is_verified: true }))
-        console.debug('[expert-dashboard] updateReport response', resp)
-        if (resp?.success || resp?.statusCode === 200 || resp?.data) {
-          toast({ title: 'Verified', description: 'Report verified successfully', duration: 3000 })
-        } else {
-          console.warn('[expert-dashboard] updateReport returned unexpected response', resp)
-          toast({ title: 'Verify failed', description: 'Server did not confirm verification', duration: 4000 })
-        }
+      const resp = await requestWithAuthRetry(() => updateReport(reportId!, { is_verified: true }))
+      console.debug('[expert-dashboard] updateReport response', resp)
+      if (resp?.success || resp?.statusCode === 200 || resp?.data) {
+        toast({ title: 'Verified', description: 'Report verified successfully', duration: 3000 })
       } else {
-        // Fallback to older endpoint if available (with retry)
-        const resp2 = await requestWithAuthRetry(() => httpClient.post(`/scans/${id}/verify`, { verified: true }))
-        console.debug('[expert-dashboard] fallback verify response', resp2)
-        toast({ title: 'Verified', description: 'Prediction marked as verified', duration: 3000 })
+        console.warn('[expert-dashboard] updateReport returned unexpected response', resp)
+        toast({ title: 'Verify failed', description: 'Server did not confirm verification', duration: 4000 })
       }
 
-      loadScans()
+      loadReports()
     } catch (err: any) {
       console.error('Failed to verify prediction', err)
       const status = err?.response?.status
@@ -300,40 +207,32 @@ export default function ExpertDashboard() {
     <section className="py-12 px-4">
       <div className="max-w-4xl mx-auto">
         <h2 className="text-2xl font-bold mb-4">Expert Dashboard</h2>
-        <p className="text-sm text-muted-foreground mb-6">View all histories and add feedback to predictions.</p>
+        <p className="text-sm text-muted-foreground mb-6">View all reports and add feedback to predictions.</p>
 
         {loading && <p>Loading histories...</p>}
 
-        {!loading && scans.length === 0 && (
+        {!loading && reports.length === 0 && (
           <Card className="p-6 mb-4">
-            <p className="text-sm text-muted-foreground">No histories available.</p>
+            <p className="text-sm text-muted-foreground">No reports available.</p>
           </Card>
         )}
 
         <div className="space-y-4">
-          {scans.map((s) => {
-            // s may be a plain scan object or a history item containing report/prediction
-            const historyReport = (s as any).report ?? null
-            const scanObj = historyReport?.scan ?? (s as any)
-            const prediction = historyReport?.prediction ?? (s as any).result?.model_prediction ?? (s as any).model_prediction ?? (s as any).prediction ?? null
-            const imageSrc = prediction?.output_image_url ?? scanObj?.image_url ?? (s as any).image_url ?? null
-            const filename = scanObj?.filename ?? scanObj?.id
-            const uploadedAt = scanObj?.uploaded_at ?? scanObj?.uploadedAt ?? (s as any).uploaded_at
+          {reports.map((r) => {
+            const scanObj = (r as any).scan ?? null
+            const prediction = (r as any).prediction ?? null
+            const imageSrc = prediction?.output_image_url ?? scanObj?.image_url ?? null
+            const filename = scanObj?.filename ?? scanObj?.id ?? r.id
+            const uploadedAt = scanObj?.uploaded_at ?? r.generated_at ?? r.created_at
 
-            // Extract user information
-            const userInfo = (s as any).user ?? historyReport?.user ?? scanObj?.user ?? null
+            const userInfo = (r as any).user ?? null
 
             return (
-              <Card key={scanObj?.id ?? (s as any).id} className="p-4">
+              <Card key={r.id} className="p-4">
                 <div className="flex flex-col md:flex-row gap-4">
                   <div className="w-full md:w-48 shrink-0">
                     {imageSrc ? (
-                      <img
-                        src={imageSrc}
-                        alt={filename ?? `Scan ${(scanObj?.id ?? (s as any).id)}`}
-                        className="w-full h-auto rounded-md object-cover border cursor-zoom-in"
-                        onClick={() => openPreview(imageSrc)}
-                      />
+                      <img src={imageSrc} alt={filename} className="w-full h-auto rounded-md object-cover border cursor-zoom-in" onClick={() => openPreview(imageSrc)} />
                     ) : (
                       <div className="w-full h-32 rounded-md bg-muted flex items-center justify-center text-sm text-muted-foreground">No image</div>
                     )}
@@ -342,20 +241,15 @@ export default function ExpertDashboard() {
                   <div className="flex-1">
                     <div className="flex items-start justify-between">
                       <div>
-                        <div className="font-medium">{filename ?? `Scan ${(scanObj?.id ?? (s as any).id)}`}</div>
-                        <div className="text-xs text-muted-foreground">Uploaded: {uploadedAt ? new Date(uploadedAt).toLocaleString() : '—'}</div>
+                        <div className="font-medium">{filename}</div>
+                        <div className="text-xs text-muted-foreground">Generated: {uploadedAt ? new Date(uploadedAt).toLocaleString() : '—'}</div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {(() => {
-                          // determine if the report is already verified
-                          const scanReport = findReportObjectRecursive(s as any) ?? findReportObjectRecursive((s as any).result ?? null)
-                          const isVerified = !!(scanReport && scanReport.is_verified)
-                          return isVerified ? (
-                            <span className="inline-flex items-center px-3 py-1 rounded-full bg-green-50 text-green-700 text-sm font-medium">Verified</span>
-                          ) : (
-                            <Button size="sm" variant="outline" onClick={() => verifyPrediction(s.id)}>Verify</Button>
-                          )
-                        })()}
+                        {((r as any).is_verified) ? (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full bg-green-50 text-green-700 text-sm font-medium">Verified</span>
+                        ) : (
+                          <Button size="sm" variant="outline" onClick={() => verifyPrediction(r.id)}>Verify</Button>
+                        )}
                       </div>
                     </div>
 
@@ -424,9 +318,9 @@ export default function ExpertDashboard() {
 
                     <div className="mt-4">
                       <Label className='mb-2'>Feedback</Label>
-                      <Input value={feedbackById[s.id] ?? ''} onChange={(e) => handleFeedbackChange(s.id, e.target.value)} placeholder="Add your feedback for this prediction" />
+                      <Input value={feedbackById[r.id] ?? ''} onChange={(e) => handleFeedbackChange(r.id, e.target.value)} placeholder="Add your feedback for this prediction" />
                       <div className="mt-3 flex justify-end gap-2">
-                        <Button onClick={() => submitFeedback(s.id)} size="sm">Submit Feedback</Button>
+                        <Button onClick={() => submitFeedback(r.id)} size="sm">Submit Feedback</Button>
                       </div>
                     </div>
                   </div>
