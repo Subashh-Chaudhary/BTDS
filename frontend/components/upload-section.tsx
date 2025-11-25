@@ -3,10 +3,11 @@
 import type React from "react";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Download } from "lucide-react";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { useToast } from "@/hooks/use-toast";
 import { httpClient } from "@/lib/http-client";
+import { generateMedicalReport } from "@/lib/pdf-generator";
 
 export default function UploadSection() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -371,20 +372,51 @@ export default function UploadSection() {
                 Provide the values above and press Predict to get a diabetes
                 risk estimate.
               </p>
-              <button
-                type="submit"
-                disabled={isAnalyzing}
-                className="ml-auto inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2 text-white font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isAnalyzing ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Predicting...
-                  </>
-                ) : (
-                  <>Predict Diabetes</>
+              <div className="ml-auto flex items-center gap-3">
+                {result && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try {
+                        generateMedicalReport(result, {
+                          name: user?.name || user?.email?.split('@')[0] || 'Patient',
+                          email: user?.email,
+                        });
+                        toast({
+                          title: "Report Downloaded",
+                          description: "Your medical report has been downloaded successfully.",
+                          duration: 3000,
+                        });
+                      } catch (error) {
+                        console.error('PDF generation error:', error);
+                        toast({
+                          title: "Download Failed",
+                          description: "Failed to generate PDF report. Please try again.",
+                          duration: 3000,
+                        });
+                      }
+                    }}
+                    className="inline-flex items-center gap-2 rounded-full bg-green-600 px-6 py-2 text-white font-medium hover:bg-green-700 transition-colors"
+                  >
+                    <Download size={18} />
+                    Download Report
+                  </button>
                 )}
-              </button>
+                <button
+                  type="submit"
+                  disabled={isAnalyzing}
+                  className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2 text-white font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Predicting...
+                    </>
+                  ) : (
+                    <>Predict Diabetes</>
+                  )}
+                </button>
+              </div>
             </div>
           </form>
 
