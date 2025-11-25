@@ -43,7 +43,7 @@ export default function AdminDashboard() {
   const [editingUser, setEditingUser] = useState<UserItem | null>(null)
   const [form, setForm] = useState({ name: '', email: '', password: '', confirm_password: '', user_type: 'user' })
   const currentUser = useAuthStore((s) => s.user)
-  
+
   const logout = useAuthStore((s) => s.logout)
   const router = useRouter()
 
@@ -153,12 +153,14 @@ export default function AdminDashboard() {
     try {
       const id = user.id
       setAction(id, true)
-      // Update activation according to DTO/endpoints
+      // Update activation according to DTO/endpoints based on user type
+      const path = user.user_type === 'expert' ? `/expert/${id}` : `/user/${id}`
+      await httpClient.put(path, { is_active: value })
       toast({ title: value ? 'Activated' : 'Deactivated', description: 'User status updated', duration: 3000 })
       loadUsers()
     } catch (err: any) {
       console.error('Failed to update user', err)
-      toast({ title: 'Update failed', description: 'Could not update user', duration: 4000 })
+      toast({ title: 'Update failed', description: err?.response?.data?.message || 'Could not update user', duration: 4000 })
     } finally {
       setAction(user.id, false)
     }
@@ -402,7 +404,7 @@ export default function AdminDashboard() {
     if (confirm && password !== confirm) errors.push('Confirm password must match password')
 
     if (!userType) errors.push('User type is required')
-    if (userType && !['user','expert'].includes(userType)) errors.push('User type must be either user or expert')
+    if (userType && !['user', 'expert'].includes(userType)) errors.push('User type must be either user or expert')
 
     return errors
   }
@@ -786,7 +788,7 @@ export default function AdminDashboard() {
                                     {feedbackByReport[s.id].map((f: any) => (
                                       <div key={f.id} className="border rounded p-2 bg-slate-50">
                                         <div className="text-sm text-slate-800">{f.feedback_text}</div>
-                                        <div className="text-xs text-slate-500 mt-1">By: {f.expert?.name ?? f.expert?.email ?? 'Expert' } ({f.expert?.email ?? '-'})</div>
+                                        <div className="text-xs text-slate-500 mt-1">By: {f.expert?.name ?? f.expert?.email ?? 'Expert'} ({f.expert?.email ?? '-'})</div>
                                         <div className="text-xs text-slate-400">Verified: {f.verified_at ? new Date(f.verified_at).toLocaleString() : 'No'}</div>
                                       </div>
                                     ))}
@@ -910,7 +912,7 @@ export default function AdminDashboard() {
                           {feedbackByReport[confirmInspectReport.id].map((f: any) => (
                             <div key={f.id} className="border rounded p-2 bg-slate-50">
                               <div className="text-sm text-slate-800">{f.feedback_text}</div>
-                              <div className="text-xs text-slate-500">By: {f.expert?.name ?? f.expert?.email ?? '-' } ({f.expert?.email ?? '-'})</div>
+                              <div className="text-xs text-slate-500">By: {f.expert?.name ?? f.expert?.email ?? '-'} ({f.expert?.email ?? '-'})</div>
                               <div className="text-xs text-slate-400">Verified: {f.verified_at ? new Date(f.verified_at).toLocaleString() : 'No'}</div>
                             </div>
                           ))}
