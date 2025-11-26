@@ -24,8 +24,10 @@ import {
   ChevronDown,
   ChevronUp,
   X as XIcon,
+  Download,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { generateMedicalReport } from "@/lib/pdf-generator";
 
 type ModelResult = {
   model_name: string;
@@ -68,35 +70,29 @@ export default function HistoryPage() {
     setLoading(true);
     setError(null);
     try {
-      // Fetch diabetes prediction history from backend histories endpoint
-      // Use the authenticated user's histories route which reads the token
-      const res = await httpClient.get(`/histories/user?page=${page}&limit=10`);
+      if (!user?.id) {
+        setError("User not authenticated");
+        setLoading(false);
+        return;
+      }
+
+      // Fetch diabetes prediction history from predictions endpoint
+      const res = await httpClient.get(`/diabetes/users/${user.id}/predictions`);
       const body = res.data;
+      
       if (body?.success) {
-        // Support different shapes: { data: { items, pagination } } or data as array
-        if (body.data?.items) {
-          setHistories(body.data.items);
-          setPagination(body.data.pagination ?? null);
-        } else if (Array.isArray(body.data)) {
+        // The API returns an array of predictions with results
+        if (Array.isArray(body.data)) {
           setHistories(body.data);
-        } else if (body.data?.predictions) {
-          setHistories(body.data.predictions);
+          setPagination(null); // No pagination from this endpoint yet
         } else {
-          // Single record
-          if (body.data?.prediction)
-            setHistories([
-              {
-                ...body.data.prediction,
-                results: body.data.results,
-                ml_response: body.data.ml_response,
-              },
-            ]);
+          setError("Unexpected response format");
         }
       } else {
-        setError(body?.message ?? "Failed to fetch history");
+        setError(body?.message ?? "Failed to fetch prediction history");
       }
     } catch (err: any) {
-      setError(err?.message || "An error occurred while fetching history");
+      setError(err?.response?.data?.message || err?.message || "An error occurred while fetching history");
     } finally {
       setLoading(false);
     }
@@ -111,17 +107,52 @@ export default function HistoryPage() {
     });
   };
 
-  const exportJSON = (item: PredictionRecord) => {
-    const blob = new Blob([JSON.stringify(item, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `prediction-${item.id || item.created_at}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast({ title: "Exported", description: "Prediction exported as JSON" });
+  const downloadPDF = (item: PredictionRecord) => {
+    try {
+      // Transform the data to match the PDF generator's expected format
+      const pdfData = {
+        prediction: {
+          id: item.id,
+          user_id: item.user_id,
+          pregnancies: item.pregnancies || 0,
+          glucose: item.glucose || 0,
+          blood_pressure: item.blood_pressure || 0,
+          skin_thickness: item.skin_thickness || 0,
+          insulin: item.insulin || 0,
+          bmi: item.bmi || 0,
+          diabetes_pedigree_function: item.diabetes_pedigree_function || 0,
+          age: item.age || 0,
+          created_at: item.created_at,
+        },
+        results: (item.results || []).map(r => ({
+          model_name: r.model_name,
+          prediction_value: r.prediction_value,
+          probability: r.probability ?? 0,
+        })),
+        ml_response: item.ml_response || {
+          ensemble_prediction: 0,
+          confidence: 0,
+          models: {},
+        },
+      };
+
+      const userInfo = {
+        name: user?.name,
+        email: user?.email,
+      };
+
+      generateMedicalReport(pdfData, userInfo);
+      toast({ 
+        title: "PDF Downloaded", 
+        description: "Medical report has been downloaded successfully" 
+      });
+    } catch (error) {
+      toast({ 
+        title: "Error", 
+        description: "Failed to generate PDF report",
+        variant: "destructive"
+      });
+    }
   };
 
   if (!isAuthenticated || !user) {
@@ -268,9 +299,10 @@ export default function HistoryPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => exportJSON(h)}
+                        onClick={() => downloadPDF(h)}
                       >
-                        Export JSON
+                        <Download className="mr-2 h-4 w-4" />
+                        Download PDF
                       </Button>
                     </div>
                   </div>

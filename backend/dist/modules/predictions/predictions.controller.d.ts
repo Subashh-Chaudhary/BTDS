@@ -28,6 +28,28 @@ export declare class PredictionsController {
     }>;
     getUserPredictions(userId: string): Promise<{
         success: boolean;
-        data: import("./entities/prediction.entity").Prediction[];
+        data: {
+            results: import("./entities/prediction-result.entity").PredictionResult[];
+            ml_response: {
+                ensemble_prediction: number | null;
+                confidence: number | null;
+                models: Record<string, {
+                    prediction: number;
+                    probability: number;
+                }>;
+            };
+            id: string;
+            user_id: string | null;
+            pregnancies: number | null;
+            glucose: number | null;
+            blood_pressure: number | null;
+            skin_thickness: number | null;
+            insulin: number | null;
+            bmi: number | null;
+            diabetes_pedigree_function: number | null;
+            age: number | null;
+            created_at: Date;
+            updated_at: Date;
+        }[];
     }>;
 }

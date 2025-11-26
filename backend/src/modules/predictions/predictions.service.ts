@@ -157,7 +157,7 @@ export class PredictionsService {
   }
 
   /**
-   * Get all predictions for a user
+   * Get all predictions for a user with results
    */
   async getUserPredictions(userId: string) {
     const predictions = await this.predictionsRepository.find({
@@ -165,6 +165,40 @@ export class PredictionsService {
       order: { created_at: 'DESC' },
     });
 
-    return predictions;
+    // Fetch results for each prediction
+    const predictionsWithResults = await Promise.all(
+      predictions.map(async (prediction) => {
+        const results = await this.predictionResultsRepository.find({
+          where: { prediction_id: prediction.id },
+        });
+
+        // Calculate ensemble prediction and confidence from results
+        let ensemble_prediction: number | null = null;
+        let confidence: number | null = null;
+
+        if (results.length > 0) {
+          ensemble_prediction = results[0].ensemble_prediction;
+          confidence = results[0].ensemble_confidence;
+        }
+
+        return {
+          ...prediction,
+          results,
+          ml_response: {
+            ensemble_prediction,
+            confidence,
+            models: results.reduce((acc, r) => {
+              acc[r.model_name] = {
+                prediction: r.prediction_value,
+                probability: r.probability,
+              };
+              return acc;
+            }, {} as Record<string, { prediction: number; probability: number }>),
+          },
+        };
+      }),
+    );
+
+    return predictionsWithResults;
   }
 }
